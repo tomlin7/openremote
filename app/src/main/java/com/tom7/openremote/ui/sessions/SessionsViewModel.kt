@@ -215,6 +215,10 @@ class SessionsViewModel(
 
     private fun handleEvent(event: ServerEvent) {
         when (event.type) {
+            // Re-read the durable active inventory after a reconnect: ephemeral
+            // status events sent while disconnected are gone.
+            "server.connected" -> scheduleRefresh()
+
             "session.status" -> {
                 val sessionID = event.sessionID ?: return
                 val status = event.obj("status")?.let {

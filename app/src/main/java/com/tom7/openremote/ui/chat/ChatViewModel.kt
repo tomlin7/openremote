@@ -70,6 +70,7 @@ class ChatViewModel(
     private val sessionID: String,
     events: SharedFlow<ServerEvent>,
 ) : ViewModel() {
+    private val pageSize = 30
     private val _state = MutableStateFlow(ChatUiState())
     val state: StateFlow<ChatUiState> = _state.asStateFlow()
 
@@ -81,14 +82,33 @@ class ChatViewModel(
     private var olderJob: Job? = null
     private var eventRefreshJob: Job? = null
     private var catalogJob: Job? = null
+    private var messagesQueued = false
+    private var initialQueued = false
 
     init {
         loadAll()
         viewModelScope.launch {
             _state.map { it.busy }.distinctUntilChanged().collectLatest { busy ->
+                var idleChecks = 0
                 while (busy && isActive) {
-                    delay(700)
-                    if (!_state.value.loading) refreshMessages()
+                    delay(1_200)
+                    if (_state.value.loading) continue
+                    // Ephemeral status/execution events can be missed across a reconnect.
+                    // session.active is the durable answer, so reconcile against it periodically.
+                    if (idleChecks++ % 2 == 0) {
+                        val active = runCatching { api.activeSessions() }.getOrNull()
+                        if (active != null && sessionID !in active) {
+                            _state.value = _state.value.copy(
+                                busy = false,
+                                status = SessionStatus(type = "idle"),
+                            )
+                            refreshMessages()
+                            refreshPending()
+                            refreshSession()
+                            return@collectLatest
+                        }
+                    }
+                    refreshMessages()
                 }
             }
         }
@@ -106,6 +126,9 @@ class ChatViewModel(
     fun retryLoad() {
         if (_state.value.loading) return
         _state.value = _state.value.copy(loading = true, fatalError = null)
+        messageJob?.cancel()
+        messagesQueued = false
+        initialQueued = false
         tailMessages = emptyList()
         olderMessages = emptyList()
         olderCursor = null
@@ -120,11 +143,9 @@ class ChatViewModel(
                     session = session,
                     selectedAgent = session.agent,
                     selectedModel = session.model,
-                    loading = false,
                 )
-                val active = runCatching { api.activeSessions() }.getOrDefault(emptySet())
-                if (sessionID in active) {
-                    _state.value = _state.value.copy(busy = true)
+                runCatching { api.activeSessions() }.getOrNull()?.let { active ->
+                    _state.value = _state.value.copy(busy = sessionID in active)
                 }
                 session.time.idle?.let { idle ->
                     if ((session.time.viewed ?: 0) < idle) {
@@ -177,24 +198,38 @@ class ChatViewModel(
     }
 
     private fun refreshMessages(initial: Boolean = false) {
-        messageJob?.cancel()
+        if (initial) initialQueued = true
+        // Coalesce instead of cancelling: a slow request must finish before the next
+        // refresh starts, otherwise a busy stream of events keeps the timeline empty.
+        if (messageJob?.isActive == true) {
+            messagesQueued = true
+            return
+        }
         messageJob = viewModelScope.launch {
-            try {
-                val page = api.messages(sessionID, limit = 200, order = "desc")
-                tailMessages = page.data.reversed()
-                if (initial) {
-                    olderCursor = page.cursor.next
-                    _state.value = _state.value.copy(
-                        hasOlder = page.data.size >= 200 && olderCursor != null,
-                        loading = false,
-                    )
+            do {
+                messagesQueued = false
+                val first = initialQueued
+                initialQueued = false
+                try {
+                    val page: MessagePage = api.messages(sessionID, limit = pageSize, order = "desc")
+                    tailMessages = page.data.reversed()
+                    if (first) {
+                        olderCursor = page.cursor.next
+                        _state.value = _state.value.copy(
+                            hasOlder = page.data.size >= pageSize && olderCursor != null,
+                        )
+                    }
+                    publishMessages()
+                } catch (error: Throwable) {
+                    if (first) {
+                        _state.value = _state.value.copy(toast = error.userMessage())
+                    }
+                } finally {
+                    if (first) {
+                        _state.value = _state.value.copy(loading = false)
+                    }
                 }
-                publishMessages()
-            } catch (error: Throwable) {
-                if (initial) {
-                    _state.value = _state.value.copy(loading = false, toast = error.userMessage())
-                }
-            }
+            } while (messagesQueued)
         }
     }
 
@@ -214,7 +249,7 @@ class ChatViewModel(
         olderJob = viewModelScope.launch {
             _state.value = _state.value.copy(loadingOlder = true)
             try {
-                val page: MessagePage = api.messages(sessionID, limit = 200, cursor = cursor)
+                val page: MessagePage = api.messages(sessionID, limit = pageSize, cursor = cursor)
                 val next = page.data.reversed()
                 val known = (olderMessages + tailMessages).map { it.id }.toSet()
                 olderMessages = (next.filter { it.id !in known } + olderMessages).distinctBy { it.id }
@@ -222,7 +257,7 @@ class ChatViewModel(
                 publishMessages()
                 _state.value = _state.value.copy(
                     loadingOlder = false,
-                    hasOlder = page.data.size >= 200 && olderCursor != null,
+                    hasOlder = page.data.size >= pageSize && olderCursor != null,
                 )
             } catch (error: Throwable) {
                 _state.value = _state.value.copy(loadingOlder = false, toast = error.userMessage())
@@ -507,6 +542,23 @@ class ChatViewModel(
         if (target != null && target != sessionID) return
 
         when (event.type) {
+            // The first event on every (re)connect. Ephemeral events we missed while
+            // disconnected are gone, so re-read durable state and the active inventory.
+            "server.connected" -> {
+                viewModelScope.launch {
+                    runCatching { api.activeSessions() }.getOrNull()?.let { active ->
+                        val running = sessionID in active
+                        _state.value = _state.value.copy(
+                            busy = running,
+                            status = if (running) _state.value.status else SessionStatus(type = "idle"),
+                        )
+                    }
+                    scheduleMessagesRefresh()
+                    refreshPending()
+                    refreshSession()
+                }
+            }
+
             "session.status" -> {
                 val status = event.obj("status")?.let {
                     runCatching { AppJson.decodeFromString<SessionStatus>(it.toString()) }.getOrNull()
@@ -525,14 +577,14 @@ class ChatViewModel(
             "session.execution.started" -> _state.value = _state.value.copy(busy = true)
             "session.execution.succeeded", "session.execution.failed",
             "session.execution.interrupted" -> {
-                _state.value = _state.value.copy(busy = false)
+                _state.value = _state.value.copy(busy = false, status = SessionStatus(type = "idle"))
                 scheduleMessagesRefresh()
                 refreshPending()
                 refreshSession()
             }
 
             "session.idle" -> {
-                _state.value = _state.value.copy(busy = false)
+                _state.value = _state.value.copy(busy = false, status = SessionStatus(type = "idle"))
                 scheduleMessagesRefresh()
             }
 
