@@ -133,26 +133,50 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch {
             _connectState.value = ConnectState(busy = true, pairing = true)
             var failure: Throwable? = null
-            var spent = false
+            var codeSpent = false
+            var token: String? = null
+            var usedUrl: String? = null
+
+            // Try to redeem the code against any of the server's addresses
             for (url in link.urls) {
                 try {
-                    val token = redeem(url, link.code)
-                    establish(url, token)
-                    _connectState.value = ConnectState()
-                    return@launch
+                    token = redeem(url, link.code)
+                    usedUrl = url
+                    break
                 } catch (cancelled: CancellationException) {
                     throw cancelled
                 } catch (error: Throwable) {
                     failure = error
                     if (error is ApiException && (error.statusCode == 401 || error.statusCode == 403)) {
-                        spent = true
+                        codeSpent = true
                         break
                     }
                 }
             }
+
+            // If redeem succeeded, try to establish the connection
+            if (token != null && usedUrl != null) {
+                try {
+                    establish(usedUrl, token)
+                    _connectState.value = ConnectState()
+                    return@launch
+                } catch (cancelled: CancellationException) {
+                    throw cancelled
+                } catch (error: Throwable) {
+                    // Token was issued but connection failed — the code is already consumed
+                    val detail = if (error is ApiException) "HTTP ${error.statusCode}: ${error.body?.take(200) ?: "no body"}" else error.message
+                    _connectState.value = ConnectState(
+                        error = "Paired successfully but could not connect: $detail. The pairing code has been used.",
+                    )
+                    return@launch
+                }
+            }
+
+            // Redeem failed — show the actual error
             val message = when {
-                spent -> "This pairing code has expired or was already used. Run `opencode pair` again."
-                failure != null -> failure.userMessage()
+                codeSpent -> "This pairing code has expired or was already used. Run `opencode pair` again."
+                failure is ApiException -> "Server rejected the pairing code (HTTP ${(failure as ApiException).statusCode} at ${usedUrl ?: link.urls.firstOrNull() ?: "unknown"}): ${(failure as ApiException).body?.take(150) ?: "no response body"}"
+                failure != null -> "Could not reach the server: ${failure.userMessage()}"
                 else -> "Could not reach the server."
             }
             _connectState.value = ConnectState(error = message)

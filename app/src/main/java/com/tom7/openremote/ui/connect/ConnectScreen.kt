@@ -58,8 +58,12 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.journeyapps.barcodescanner.ScanContract
-import com.journeyapps.barcodescanner.ScanOptions
+import io.github.g00fy2.quickie.QRError
+import io.github.g00fy2.quickie.QRMissingPermission
+import io.github.g00fy2.quickie.QRResult
+import io.github.g00fy2.quickie.QRSuccess
+import io.github.g00fy2.quickie.QRUserCanceled
+import io.github.g00fy2.quickie.ScanQRCode
 import com.tom7.openremote.AppViewModel
 
 @Composable
@@ -70,23 +74,29 @@ fun ConnectScreen(app: AppViewModel) {
     var pairing by rememberSaveable { mutableStateOf("") }
     var showPassword by rememberSaveable { mutableStateOf(false) }
     var alternative by rememberSaveable { mutableStateOf("") }
+    var permissionError by rememberSaveable { mutableStateOf<String?>(null) }
     val showPairingLink = alternative == "link"
     val showPasswordForm = alternative == "password"
 
-    val scanLauncher = rememberLauncherForActivityResult(ScanContract()) { result ->
-        val contents = result.contents
-        if (!contents.isNullOrBlank()) {
-            pairing = contents
-            app.pair(contents)
+    val scanLauncher = rememberLauncherForActivityResult(ScanQRCode()) { result ->
+        when (result) {
+            is QRSuccess -> {
+                val contents = result.content.rawValue
+                if (!contents.isNullOrBlank()) {
+                    pairing = contents
+                    app.pair(contents)
+                }
+            }
+            is QRUserCanceled -> { /* User tapped back, no action needed */ }
+            is QRMissingPermission -> {
+                permissionError = "Camera permission is required to scan QR codes. Please grant camera permission in app settings."
+            }
+            is QRError -> {
+                permissionError = "Scan failed: ${result.exception.message ?: "Unknown error"}"
+            }
         }
     }
-    val scanOptions = remember {
-        ScanOptions()
-            .setDesiredBarcodeFormats(ScanOptions.QR_CODE)
-            .setPrompt("Scan the pairing QR code")
-            .setBeepEnabled(false)
-            .setOrientationLocked(false)
-    }
+
     val busy = connectState.busy
     val pairingBusy = busy && connectState.pairing
     val muted = MaterialTheme.colorScheme.onSurfaceVariant
@@ -136,7 +146,7 @@ fun ConnectScreen(app: AppViewModel) {
 
                         Spacer(Modifier.height(28.dp))
                         Button(
-                            onClick = { scanLauncher.launch(scanOptions) },
+                            onClick = { scanLauncher.launch(null) },
                             enabled = !busy,
                             shape = RoundedCornerShape(10.dp),
                             modifier = Modifier.fillMaxWidth().height(48.dp),
@@ -163,6 +173,17 @@ fun ConnectScreen(app: AppViewModel) {
                         }
 
                         connectState.error?.let { error ->
+                            Spacer(Modifier.height(14.dp))
+                            Text(
+                                error,
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.error,
+                                textAlign = TextAlign.Center,
+                                modifier = Modifier.fillMaxWidth(),
+                            )
+                        }
+
+                        permissionError?.let { error ->
                             Spacer(Modifier.height(14.dp))
                             Text(
                                 error,

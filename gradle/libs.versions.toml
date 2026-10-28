@@ -12,7 +12,7 @@ okhttp = "4.12.0"
 serialization = "1.7.3"
 coroutines = "1.9.0"
 coil = "2.7.0"
-zxing = "4.3.0"
+quickie = "1.12.0"
 
 [libraries]
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
@@ -37,7 +37,7 @@ kotlinx-serialization-json = { group = "org.jetbrains.kotlinx", name = "kotlinx-
 kotlinx-coroutines-android = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-android", version.ref = "coroutines" }
 kotlinx-coroutines-test = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-test", version.ref = "coroutines" }
 coil-compose = { group = "io.coil-kt", name = "coil-compose", version.ref = "coil" }
-zxing-android-embedded = { group = "com.journeyapps", name = "zxing-android-embedded", version.ref = "zxing" }
+quickie-bundled = { group = "io.github.g00fy2.quickie", name = "quickie-bundled", version.ref = "quickie" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }
