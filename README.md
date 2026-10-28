@@ -4,6 +4,25 @@
 
 ## Pair your computer (recommended)
 
+<table>
+<tr>
+<td width="65%" valign="top">
+
+<div align="center">
+
+<img alt="Screenshot 2026-10-29 023139" src="https://github.com/user-attachments/assets/7c0ea354-09af-4ce6-9e9e-c828534de303" />
+
+
+</div>
+
+</td>
+<td width="35%" valign="top">
+   <img height="100%" alt="Screenshot 2026-10-29 023226" src="https://github.com/user-attachments/assets/21dc0f5d-282a-46cf-b4d5-034b4da9fdb8" />
+</td>
+</tr>
+</table>
+
+
 You need OpenCode desktop running on the machine that hosts your sessions, and Android 7.0 (API 24) or newer on the phone.
 
 1. Open the **OpenCode desktop app** on your computer.
