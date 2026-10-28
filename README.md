@@ -1,8 +1,12 @@
 # OpenRemote
 
-**The Android companion app for OpenCode desktop.** Pair your phone with the OpenCode app on your computer once, and the sessions you're already running on your PC are available from your phone — anywhere, over an encrypted tunnel. Same sessions, same agents and models, same tool output. Your desktop keeps working exactly as it does now.
+**The Android companion app for OpenCode.** 
 
-## Pair your computer (recommended)
+- - Pair once, access existing/new sessions from anywhere over an encrypted tunnel. 
+- - Everything available: sessions, agents, models, outputs, queue/steer, ... 
+- - Your PC runs OpenCode server. Your phone gives you access to it wherever you are.
+
+## Pair your computer
 
 <table>
 <tr>
@@ -22,13 +26,10 @@
 </tr>
 </table>
 
-
-You need OpenCode desktop running on the machine that hosts your sessions, and Android 7.0 (API 24) or newer on the phone.
-
 1. Open the **OpenCode desktop app** on your computer.
 2. Go to **Settings → Pairing** and click **Pair device**.
 3. A QR code and a link appear. Pairing sets up remote access automatically — leave the **Remote access** switch on if you want to reach this computer from outside your network.
-4. On your phone, open OpenRemote and, under **Pair instantly**, tap **Scan** and point the camera at the QR code.
+4. On your phone, open **OpenRemote** and, under **Pair instantly**, tap **Scan** and point the camera at the QR code.
    Not scanning? Click **Copy link** in the desktop app, paste it into the **Pairing link or code** field, and tap **Pair**.
 5. Your sessions appear. Tap one to follow it live, reply, approve permission requests, or start a new run.
 
@@ -42,14 +43,16 @@ Things worth knowing:
 
 ## What you can do from your phone
 
-- **Sessions** — browse, search, and create sessions with a project directory, agent and model; rename, archive, or delete. Busy sessions are marked live.
-- **Conversation** — the full timeline the desktop shows: prompts, assistant text, reasoning, tool calls with input/result/error, shell commands, compaction, agent/model switches. Markdown with code blocks, and attached images inline.
-- **Live updates** — server-sent events keep the timeline and the session list current while OpenCode works, with polling as a fallback and automatic reconnects.
-- **Prompting** — send text and images/files (up to 6, 10 MB each), **queue** or **steer** while a run is active, stop a run, run slash commands, or run a shell command in the session directory.
-- **Approvals** — answer permission requests and fill in server forms without going back to the desk.
-- **Models and agents** — pick per session and switch on the fly.
-- **Session actions** — fork, compact context, and jump into subagent sessions.
-- **Settings** — dark by default, plus light and follow-system; default delivery, reasoning visibility, server details, reconnect and disconnect. The moon/sun button in the sessions top bar flips the theme instantly.
+| Feature         | What you can do                                                                                                                   |
+| --------------- | --------------------------------------------------------------------------------------------------------------------------------- |
+| Sessions        | Browse, search, create, rename, archive, and delete sessions. See which sessions are actively running.                            |
+| Conversation    | View the full timeline, including messages, reasoning, tool calls, shell commands, code blocks, images, and agent/model switches. |
+| Live updates    | Follow sessions in real time via SSE, with automatic reconnection and polling fallback.                                           |
+| Prompting       | Send text, images, and files (up to 6 × 10 MB). Queue or steer prompts, stop runs, and execute slash or shell commands.           |
+| Approvals       | Respond to permission requests and server forms directly from your phone.                                                         |
+| Models & agents | Select and switch agents or models per session, even while working.                                                               |
+| Session actions | Fork sessions, compact context, and navigate into subagent sessions.                                                              |
+| Settings        | Switch between dark, light, and system themes. Configure prompt delivery, reasoning visibility, and server connections.           |
 
 ## How the connection works
 
