@@ -197,6 +197,19 @@ class ChatViewModel(
         }
     }
 
+    // Optimistic busy flags are corrected from the server's durable inventory.
+    private fun reconcileBusy() {
+        viewModelScope.launch {
+            val active = runCatching { api.activeSessions() }.getOrNull()
+            if (active == null) return@launch
+            val running = sessionID in active
+            _state.value = _state.value.copy(
+                busy = running,
+                status = if (running) _state.value.status else SessionStatus(type = "idle"),
+            )
+        }
+    }
+
     private fun refreshMessages(initial: Boolean = false) {
         if (initial) initialQueued = true
         // Coalesce instead of cancelling: a slow request must finish before the next
@@ -369,6 +382,7 @@ class ChatViewModel(
                     pending = _state.value.pending.filterNot { it.id == optimistic.id },
                     toast = error.userMessage(),
                 )
+                reconcileBusy()
             }
         }
     }
@@ -425,6 +439,7 @@ class ChatViewModel(
                 _state.value = _state.value.copy(toast = "Compaction requested", busy = true)
             } catch (error: Throwable) {
                 _state.value = _state.value.copy(toast = error.userMessage())
+                reconcileBusy()
             }
         }
     }
@@ -484,6 +499,7 @@ class ChatViewModel(
                 refreshMessages()
             } catch (error: Throwable) {
                 _state.value = _state.value.copy(toast = error.userMessage())
+                reconcileBusy()
             }
         }
     }
