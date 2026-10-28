@@ -321,7 +321,7 @@ fun ChatScreen(
                     top = 8.dp,
                     bottom = 12.dp,
                 ),
-                verticalArrangement = Arrangement.spacedBy(14.dp),
+                verticalArrangement = Arrangement.spacedBy(10.dp),
             ) {
                 if (state.hasOlder || state.loadingOlder) {
                     item(key = "older") {
