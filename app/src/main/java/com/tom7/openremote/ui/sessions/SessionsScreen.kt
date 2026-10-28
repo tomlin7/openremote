@@ -175,8 +175,8 @@ fun SessionsScreen(
                 icon = { Icon(Icons.Outlined.Add, contentDescription = null) },
                 text = { Text("New session") },
                 shape = RoundedCornerShape(16.dp),
-                containerColor = MaterialTheme.colorScheme.primary,
-                contentColor = MaterialTheme.colorScheme.onPrimary,
+                containerColor = MaterialTheme.colorScheme.secondary,
+                contentColor = MaterialTheme.colorScheme.onSecondary,
             )
         },
         snackbarHost = { SnackbarHost(snackbar) },

@@ -1,6 +1,7 @@
 package com.tom7.openremote.ui.connect
 
 import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -139,12 +140,16 @@ fun ConnectScreen(app: AppViewModel) {
                             enabled = !busy,
                             shape = RoundedCornerShape(10.dp),
                             modifier = Modifier.fillMaxWidth().height(48.dp),
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = MaterialTheme.colorScheme.secondary,
+                                contentColor = MaterialTheme.colorScheme.onSecondary,
+                            ),
                         ) {
                             if (pairingBusy) {
                                 CircularProgressIndicator(
                                     modifier = Modifier.size(17.dp),
                                     strokeWidth = 2.dp,
-                                    color = MaterialTheme.colorScheme.onPrimary,
+                                    color = MaterialTheme.colorScheme.onSecondary,
                                 )
                                 Spacer(Modifier.width(9.dp))
                             } else {
@@ -314,14 +319,15 @@ private fun Brand(muted: Color) {
     ) {
         Surface(
             shape = RoundedCornerShape(11.dp),
-            color = MaterialTheme.colorScheme.primary,
+            color = MaterialTheme.colorScheme.surfaceContainer,
+            contentColor = MaterialTheme.colorScheme.onSurface,
+            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
             modifier = Modifier.size(40.dp),
         ) {
             Box(contentAlignment = Alignment.Center) {
                 Icon(
                     Icons.Outlined.Terminal,
                     contentDescription = null,
-                    tint = MaterialTheme.colorScheme.onPrimary,
                     modifier = Modifier.size(21.dp),
                 )
             }

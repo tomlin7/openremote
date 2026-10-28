@@ -12,12 +12,12 @@ import androidx.core.view.WindowCompat
 import com.tom7.openremote.data.ThemeMode
 
 private val DarkColorScheme = darkColorScheme(
-    primary = Blue600,
-    onPrimary = Grey50,
-    primaryContainer = Blue1200,
-    onPrimaryContainer = Blue300,
-    secondary = Blue400,
-    onSecondary = Grey1200,
+    primary = Grey100,
+    onPrimary = Grey1100,
+    primaryContainer = Grey900,
+    onPrimaryContainer = Grey100,
+    secondary = Grey700,
+    onSecondary = Grey50,
     secondaryContainer = Grey1000,
     onSecondaryContainer = Grey100,
     tertiary = Color(0xFF6BD586),
@@ -41,18 +41,18 @@ private val DarkColorScheme = darkColorScheme(
     onErrorContainer = Red300,
     inverseSurface = Grey100,
     inverseOnSurface = Grey1100,
-    inversePrimary = Blue600,
+    inversePrimary = Grey300,
     scrim = Color(0xFF000000),
 )
 
 private val LightColorScheme = lightColorScheme(
-    primary = Blue600,
+    primary = Grey1100,
     onPrimary = Grey50,
-    primaryContainer = Blue200,
-    onPrimaryContainer = Blue1000,
-    secondary = Blue800,
+    primaryContainer = Grey200,
+    onPrimaryContainer = Grey1100,
+    secondary = Grey1000,
     onSecondary = Grey50,
-    secondaryContainer = Grey100,
+    secondaryContainer = Grey200,
     onSecondaryContainer = Grey1100,
     tertiary = Green800,
     onTertiary = Grey50,
@@ -75,7 +75,7 @@ private val LightColorScheme = lightColorScheme(
     onErrorContainer = Red1000,
     inverseSurface = Grey1100,
     inverseOnSurface = Grey100,
-    inversePrimary = Blue400,
+    inversePrimary = Grey600,
     scrim = Color(0xFF000000),
 )
 
