@@ -108,13 +108,8 @@ data class ServerInfo(
 data class MessageTime(val created: Long = 0, val completed: Long? = null)
 
 @Serializable
-data class FileSource(val type: String = "inline", val uri: String? = null)
-
-@Serializable
 data class PromptFile(
-    val data: String = "",
-    val mime: String = "",
-    val source: FileSource = FileSource(),
+    val uri: String,
     val name: String? = null,
     val description: String? = null,
 )
