@@ -549,6 +549,7 @@ fun ChatScreen(
     if (showPanels) {
         SessionPanelsSheet(
             messages = state.messages,
+            api = api,
             onDismiss = { showPanels = false },
         )
     }

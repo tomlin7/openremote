@@ -101,6 +101,21 @@ data class ServerInfo(
 )
 
 // ---------------------------------------------------------------------------
+// File System
+// ---------------------------------------------------------------------------
+
+@Serializable
+data class FileSystemEntry(
+    val path: String,
+    val type: String, // "file" or "directory"
+)
+
+@Serializable
+data class FileSystemListResponse(
+    val data: List<FileSystemEntry> = emptyList(),
+)
+
+// ---------------------------------------------------------------------------
 // Messages
 // ---------------------------------------------------------------------------
 

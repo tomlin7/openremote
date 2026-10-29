@@ -104,6 +104,22 @@ class OpenCodeApi(
     }
 
     // -----------------------------------------------------------------------
+    // File System
+    // -----------------------------------------------------------------------
+
+    suspend fun listFiles(path: String? = null): List<FileSystemEntry> {
+        val query = buildList {
+            if (!path.isNullOrBlank()) add("path" to path)
+        }
+        val response: FileSystemListResponse = get("/api/fs/list", query)
+        return response.data
+    }
+
+    suspend fun readFile(path: String): ByteArray {
+        return callRaw("GET", "/api/fs/read/$path")
+    }
+
+    // -----------------------------------------------------------------------
     // Sessions
     // -----------------------------------------------------------------------
 
@@ -343,6 +359,26 @@ class OpenCodeApi(
         return execute(request)
     }
 
+    private suspend fun callRaw(
+        method: String,
+        path: String,
+        query: List<Pair<String, String>> = emptyList(),
+        body: Any? = null,
+    ): ByteArray {
+        val requestBody = when {
+            body == null -> null
+            body is String -> body.toRequestBody(JSON_MEDIA)
+            body === UnitBody -> "{}".toRequestBody(JSON_MEDIA)
+            else -> AppJson.encodeToString(serializerFor(body), body).toRequestBody(JSON_MEDIA)
+        }
+        val request = Request.Builder()
+            .url(url(path, query))
+            .header("Authorization", authorization)
+            .method(method, requestBody)
+            .build()
+        return executeRaw(request)
+    }
+
     private suspend fun execute(request: Request): String {
         val response = client.newCall(request).await()
         return withContext(Dispatchers.IO) {
@@ -352,6 +388,19 @@ class OpenCodeApi(
                     throw ApiException(it.code, apiErrorSummary(it.code, body), body)
                 }
                 body
+            }
+        }
+    }
+
+    private suspend fun executeRaw(request: Request): ByteArray {
+        val response = client.newCall(request).await()
+        return withContext(Dispatchers.IO) {
+            response.use {
+                if (!it.isSuccessful) {
+                    val body = it.body?.string().orEmpty()
+                    throw ApiException(it.code, apiErrorSummary(it.code, body), body)
+                }
+                it.body?.bytes() ?: ByteArray(0)
             }
         }
     }
