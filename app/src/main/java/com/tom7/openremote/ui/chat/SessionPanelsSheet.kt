@@ -17,6 +17,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Code
 import androidx.compose.material.icons.outlined.Description
 import androidx.compose.material.icons.outlined.Folder
+import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material.icons.outlined.Terminal
 import androidx.compose.material.icons.outlined.Web
 import androidx.compose.material3.Card
@@ -37,12 +38,14 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import com.tom7.openremote.data.SessionInfo
 import com.tom7.openremote.data.SessionMessage
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SessionPanelsSheet(
     messages: List<SessionMessage>,
+    session: SessionInfo? = null,
     api: com.tom7.openremote.data.OpenCodeApi? = null,
     onDismiss: () -> Unit,
 ) {
@@ -55,6 +58,7 @@ fun SessionPanelsSheet(
 
     var selectedPanel by remember { mutableStateOf<String?>(null) }
     var showTerminal by remember { mutableStateOf(false) }
+    var showContext by remember { mutableStateOf(false) }
 
     ModalBottomSheet(
         onDismissRequest = onDismiss,
@@ -85,6 +89,15 @@ fun SessionPanelsSheet(
             return@ModalBottomSheet
         }
 
+        if (showContext) {
+            ContextSheet(
+                session = session,
+                messages = messages,
+                onDismiss = { showContext = false },
+            )
+            return@ModalBottomSheet
+        }
+
         Column(
             modifier = Modifier
                 .fillMaxWidth()
@@ -104,6 +117,15 @@ fun SessionPanelsSheet(
                 title = "Files",
                 subtitle = "Browse project files",
                 onClick = { selectedPanel = "files" },
+            )
+            Spacer(Modifier.height(8.dp))
+
+            // Context Panel
+            PanelCard(
+                icon = Icons.Outlined.Info,
+                title = "Context",
+                subtitle = "Session metadata and usage",
+                onClick = { showContext = true },
             )
             Spacer(Modifier.height(8.dp))
 
