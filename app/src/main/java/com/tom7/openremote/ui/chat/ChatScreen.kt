@@ -29,6 +29,7 @@ import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material.icons.outlined.Edit
 import androidx.compose.material.icons.outlined.MoreVert
 import androidx.compose.material.icons.outlined.Terminal
+import androidx.compose.material.icons.automirrored.outlined.ViewSidebar
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
@@ -104,6 +105,7 @@ fun ChatScreen(
     var showModelPicker by remember { mutableStateOf(false) }
     var showAgentPicker by remember { mutableStateOf(false) }
     var showCommandPicker by remember { mutableStateOf(false) }
+    var showPanels by remember { mutableStateOf(false) }
     var renameOpen by remember { mutableStateOf(false) }
     var deleteOpen by remember { mutableStateOf(false) }
     var archiveOpen by remember { mutableStateOf(false) }
@@ -211,6 +213,9 @@ fun ChatScreen(
                     }
                 },
                 actions = {
+                    IconButton(onClick = { showPanels = true }) {
+                        Icon(Icons.AutoMirrored.Outlined.ViewSidebar, contentDescription = "Session panels")
+                    }
                     Box {
                         IconButton(onClick = { showMenu = true }) {
                             Icon(Icons.Outlined.MoreVert, contentDescription = "Session actions")
@@ -538,6 +543,13 @@ fun ChatScreen(
                 ) { Text("Delete", color = MaterialTheme.colorScheme.error) }
             },
             dismissButton = { TextButton(onClick = { deleteOpen = false }) { Text("Cancel") } },
+        )
+    }
+
+    if (showPanels) {
+        SessionPanelsSheet(
+            messages = state.messages,
+            onDismiss = { showPanels = false },
         )
     }
 }
