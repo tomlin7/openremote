@@ -16,6 +16,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Code
 import androidx.compose.material.icons.outlined.Description
+import androidx.compose.material.icons.outlined.Folder
 import androidx.compose.material.icons.outlined.Terminal
 import androidx.compose.material.icons.outlined.Web
 import androidx.compose.material3.Card
@@ -27,7 +28,10 @@ import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Text
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
@@ -39,6 +43,7 @@ import com.tom7.openremote.data.SessionMessage
 @Composable
 fun SessionPanelsSheet(
     messages: List<SessionMessage>,
+    api: com.tom7.openremote.data.OpenCodeApi? = null,
     onDismiss: () -> Unit,
 ) {
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
@@ -48,11 +53,21 @@ fun SessionPanelsSheet(
         parseSessionActivity(messages)
     }
 
+    var selectedPanel by remember { mutableStateOf<String?>(null) }
+
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = sheetState,
         containerColor = MaterialTheme.colorScheme.surface,
     ) {
+        if (selectedPanel == "files" && api != null) {
+            FileBrowserSheet(
+                api = api,
+                onDismiss = { selectedPanel = null },
+            )
+            return@ModalBottomSheet
+        }
+
         Column(
             modifier = Modifier
                 .fillMaxWidth()
@@ -65,6 +80,15 @@ fun SessionPanelsSheet(
                 fontWeight = FontWeight.Bold,
                 modifier = Modifier.padding(bottom = 16.dp),
             )
+
+            // Files Panel
+            PanelCard(
+                icon = Icons.Outlined.Folder,
+                title = "Files",
+                subtitle = "Browse project files",
+                onClick = { selectedPanel = "files" },
+            )
+            Spacer(Modifier.height(8.dp))
 
             // Files Changed Panel
             if (sessionActivity.filesChanged.isNotEmpty()) {
