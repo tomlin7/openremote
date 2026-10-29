@@ -25,8 +25,8 @@ android {
         applicationId = "com.tom7.openremote"
         minSdk = 24
         targetSdk = 37
-        versionCode = 1
-        versionName = "1.0"
+        versionCode = 2
+        versionName = "1.1"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
@@ -46,6 +46,11 @@ android {
         release {
             if (keystorePropertiesFile.exists()) {
                 signingConfig = signingConfigs.getByName("release")
+            }
+            // ML Kit ships native libs for four ABIs. Real phones are ARM-only, and keeping the
+            // x86 images would add ~12 MB to the download for no benefit.
+            ndk {
+                abiFilters += listOf("arm64-v8a", "armeabi-v7a")
             }
             optimization {
                 enable = false
@@ -83,7 +88,7 @@ dependencies {
     implementation(libs.kotlinx.serialization.json)
     implementation(libs.kotlinx.coroutines.android)
     implementation(libs.coil.compose)
-    implementation(libs.zxing.android.embedded)
+    implementation(libs.quickie.bundled)
 
     testImplementation(libs.junit)
     testImplementation(libs.kotlinx.coroutines.test)
