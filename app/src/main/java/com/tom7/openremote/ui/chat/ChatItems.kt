@@ -65,10 +65,25 @@ import com.tom7.openremote.ui.common.prettyJson
 import com.tom7.openremote.ui.common.rememberClipboardWriter
 import com.tom7.openremote.ui.common.relativeTime
 import com.tom7.openremote.ui.common.toolDisplayName
+import java.util.Base64
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.jsonPrimitive
+
+// Helper to parse data URIs: data:image/png;base64,iVBORw0KGgo...
+private data class DataUri(val mimeType: String, val data: String)
+
+private fun parseDataUri(uri: String): DataUri? {
+    if (!uri.startsWith("data:")) return null
+    val commaIndex = uri.indexOf(',')
+    if (commaIndex == -1) return null
+    val header = uri.substring(5, commaIndex) // Skip "data:"
+    val data = uri.substring(commaIndex + 1)
+    val mimeEnd = header.indexOf(';')
+    val mimeType = if (mimeEnd != -1) header.substring(0, mimeEnd) else header
+    return DataUri(mimeType, data)
+}
 
 // Desktop transcripts keep tool rows on one 13px line: a medium title and a muted subtitle.
 private val RowTitleStyle = TextStyle(
@@ -146,8 +161,9 @@ fun UserMessage(
                         Text(text = text, style = MaterialTheme.typography.bodyMedium)
                     }
                     message.files.forEach { file ->
-                        if (file.mime.startsWith("image/") && file.data.isNotBlank()) {
-                            InlineImageAttachment(file)
+                        val dataUri = parseDataUri(file.uri)
+                        if (dataUri != null && dataUri.mimeType.startsWith("image/") && dataUri.data.isNotBlank()) {
+                            InlineImageAttachment(file, dataUri.data)
                             return@forEach
                         }
                         Row(
@@ -162,7 +178,7 @@ fun UserMessage(
                             )
                             Spacer(Modifier.width(6.dp))
                             Text(
-                                text = file.name ?: file.mime.ifBlank { "attachment" },
+                                text = file.name ?: dataUri?.mimeType ?: "attachment",
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 maxLines = 1,
@@ -228,10 +244,10 @@ fun UserMessage(
 }
 
 @Composable
-private fun InlineImageAttachment(file: PromptFile) {
-    val bitmap by produceState<androidx.compose.ui.graphics.ImageBitmap?>(null, file.data) {
+private fun InlineImageAttachment(file: PromptFile, base64Data: String) {
+    val bitmap by produceState<androidx.compose.ui.graphics.ImageBitmap?>(null, base64Data) {
         value = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Default) {
-            decodeInlineImage(file.data)
+            decodeInlineImage(base64Data)
         }
     }
     val image = bitmap
@@ -259,7 +275,7 @@ private fun InlineImageAttachment(file: PromptFile) {
         )
         Spacer(Modifier.width(6.dp))
         Text(
-            text = file.name ?: file.mime,
+            text = file.name ?: "Image attachment",
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             maxLines = 1,

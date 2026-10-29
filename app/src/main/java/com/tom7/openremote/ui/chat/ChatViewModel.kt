@@ -328,10 +328,10 @@ class ChatViewModel(
         if (_state.value.sending) return
 
         val files = attachments.map { attachment ->
+            // Convert base64 data to a data URI
+            val uri = "data:${attachment.mime};base64,${attachment.base64}"
             PromptFile(
-                data = attachment.base64,
-                mime = attachment.mime,
-                source = com.tom7.openremote.data.FileSource(type = "inline"),
+                uri = uri,
                 name = attachment.name,
             )
         }
