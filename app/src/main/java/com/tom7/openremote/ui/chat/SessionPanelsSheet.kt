@@ -59,6 +59,7 @@ fun SessionPanelsSheet(
     var selectedPanel by remember { mutableStateOf<String?>(null) }
     var showTerminal by remember { mutableStateOf(false) }
     var showContext by remember { mutableStateOf(false) }
+    var showBrowser by remember { mutableStateOf(false) }
 
     ModalBottomSheet(
         onDismissRequest = onDismiss,
@@ -94,6 +95,14 @@ fun SessionPanelsSheet(
                 session = session,
                 messages = messages,
                 onDismiss = { showContext = false },
+            )
+            return@ModalBottomSheet
+        }
+
+        if (showBrowser) {
+            BrowserSheet(
+                messages = messages,
+                onDismiss = { showBrowser = false },
             )
             return@ModalBottomSheet
         }
@@ -168,7 +177,7 @@ fun SessionPanelsSheet(
                     icon = Icons.Outlined.Web,
                     title = "Browser",
                     subtitle = "${sessionActivity.browserCalls} actions",
-                    onClick = { /* TODO: Show browser screenshots */ },
+                    onClick = { showBrowser = true },
                 )
                 Spacer(Modifier.height(8.dp))
             }
