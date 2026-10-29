@@ -68,6 +68,14 @@ fun SessionPanelsSheet(
             return@ModalBottomSheet
         }
 
+        if (selectedPanel == "files-changed") {
+            FilesChangedSheet(
+                messages = messages,
+                onDismiss = { selectedPanel = null },
+            )
+            return@ModalBottomSheet
+        }
+
         Column(
             modifier = Modifier
                 .fillMaxWidth()
@@ -96,7 +104,7 @@ fun SessionPanelsSheet(
                     icon = Icons.Outlined.Description,
                     title = "Files Changed",
                     subtitle = "${sessionActivity.filesChanged.size} files",
-                    onClick = { /* TODO: Show file details */ },
+                    onClick = { selectedPanel = "files-changed" },
                 )
                 Spacer(Modifier.height(8.dp))
             }
