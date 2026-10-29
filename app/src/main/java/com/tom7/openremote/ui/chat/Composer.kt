@@ -59,14 +59,20 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.spring
 import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.pointer.PointerEventTimeoutCancellationException
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.IntOffset
@@ -292,6 +298,15 @@ fun ChatComposer(
                     var isLongPressing by remember { mutableStateOf(false) }
                     var showQueueHint by remember { mutableStateOf(false) }
                     var deliveryMode by remember { mutableStateOf("steer") }
+                    var dragOffsetY by remember { mutableStateOf(0f) }
+                    val haptic = LocalHapticFeedback.current
+                    
+                    // Animate scale when pressing
+                    val scale by animateFloatAsState(
+                        targetValue = if (isLongPressing) 1.35f else 1f,
+                        animationSpec = spring(stiffness = Spring.StiffnessMedium),
+                        label = "buttonScale"
+                    )
                     
                     Box(
                         modifier = Modifier.size(40.dp),
@@ -299,6 +314,8 @@ fun ChatComposer(
                     ) {
                         Box(
                             modifier = Modifier
+                                .scale(scale)
+                                .offset(y = dragOffsetY.dp)
                                 .size(40.dp)
                                 .clip(RoundedCornerShape(13.dp))
                                 .background(
@@ -324,9 +341,14 @@ fun ChatComposer(
                                                 isLongPressing = true
                                                 showQueueHint = true
                                                 deliveryMode = "steer"
+                                                dragOffsetY = 0f
+                                                // Trigger haptic feedback
+                                                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                                             },
                                             onDrag = { change, dragAmount ->
                                                 change.consume()
+                                                // Track offset to move button with finger
+                                                dragOffsetY = change.position.y - startY
                                                 val totalDrag = startY - change.position.y
                                                 if (totalDrag > 30f) {
                                                     dragThresholdReached = true
@@ -338,6 +360,7 @@ fun ChatComposer(
                                             onDragEnd = {
                                                 isLongPressing = false
                                                 showQueueHint = false
+                                                dragOffsetY = 0f
                                                 if (draft.isNotBlank() || attachments.isNotEmpty()) {
                                                     onSend(draft, attachments, deliveryMode)
                                                     onDraftChange("")
@@ -347,6 +370,7 @@ fun ChatComposer(
                                             onDragCancel = {
                                                 isLongPressing = false
                                                 showQueueHint = false
+                                                dragOffsetY = 0f
                                             },
                                         )
                                     } else {
