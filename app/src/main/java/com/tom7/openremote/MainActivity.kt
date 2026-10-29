@@ -6,16 +6,32 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.padding
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Home
+import androidx.compose.material.icons.filled.List
+import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.outlined.Home
+import androidx.compose.material.icons.outlined.List
+import androidx.compose.material.icons.outlined.Settings
+import androidx.compose.material3.Icon
+import androidx.compose.material3.NavigationBar
+import androidx.compose.material3.NavigationBarItem
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.ui.Modifier
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.tom7.openremote.ui.chat.ChatScreen
 import com.tom7.openremote.ui.connect.ConnectScreen
+import com.tom7.openremote.ui.home.HomeScreen
 import com.tom7.openremote.ui.sessions.SessionsScreen
 import com.tom7.openremote.ui.settings.SettingsScreen
 import com.tom7.openremote.ui.theme.OpenRemoteTheme
@@ -50,8 +66,8 @@ private fun pairingInput(intent: Intent?): String? {
     return intent.dataString?.takeIf { it.isNotBlank() }
 }
 
+private const val SCREEN_HOME = "home"
 private const val SCREEN_SESSIONS = "sessions"
-private const val SCREEN_CHAT = "chat"
 private const val SCREEN_SETTINGS = "settings"
 
 @Composable
@@ -64,7 +80,7 @@ fun OpenRemoteRoot(
     val themeMode by app.themeMode.collectAsStateWithLifecycle()
 
     OpenRemoteTheme(mode = themeMode) {
-        var screen by rememberSaveable { mutableStateOf(SCREEN_SESSIONS) }
+        var screen by rememberSaveable { mutableStateOf(SCREEN_HOME) }
         var sessionID by rememberSaveable { mutableStateOf<String?>(null) }
         val api = app.api
 
@@ -76,8 +92,13 @@ fun OpenRemoteRoot(
             app.pair(link)
         }
 
-        BackHandler(enabled = connection != null && screen != SCREEN_SESSIONS) {
-            screen = SCREEN_SESSIONS
+        BackHandler(enabled = connection != null && screen != SCREEN_SESSIONS && sessionID != null) {
+            if (sessionID != null) {
+                sessionID = null
+                screen = SCREEN_SESSIONS
+            } else {
+                screen = SCREEN_SESSIONS
+            }
         }
 
         if (connection == null || api == null) {
@@ -85,42 +106,86 @@ fun OpenRemoteRoot(
             return@OpenRemoteTheme
         }
 
-        when (screen) {
-            SCREEN_CHAT -> {
-                val current = sessionID
-                if (current == null) {
-                    screen = SCREEN_SESSIONS
-                } else {
-                    ChatScreen(
-                        api = api,
-                        app = app,
-                        sessionID = current,
-                        onBack = {
-                            screen = SCREEN_SESSIONS
-                            sessionID = null
-                        },
-                        onOpenSession = { id ->
-                            sessionID = id
-                            screen = SCREEN_CHAT
-                        },
-                    )
-                }
-            }
-
-            SCREEN_SETTINGS -> SettingsScreen(
-                app = app,
-                onBack = { screen = SCREEN_SESSIONS },
-            )
-
-            else -> SessionsScreen(
+        // Chat screen doesn't use bottom nav
+        if (sessionID != null) {
+            ChatScreen(
                 api = api,
                 app = app,
-                onOpenSession = { session ->
-                    sessionID = session.id
-                    screen = SCREEN_CHAT
+                sessionID = sessionID!!,
+                onBack = {
+                    sessionID = null
                 },
-                onOpenSettings = { screen = SCREEN_SETTINGS },
+                onOpenSession = { id ->
+                    sessionID = id
+                },
             )
+            return@OpenRemoteTheme
+        }
+
+        // Main screen with bottom navigation
+        Scaffold(
+            bottomBar = {
+                NavigationBar {
+                    NavigationBarItem(
+                        icon = {
+                            Icon(
+                                if (screen == SCREEN_HOME) Icons.Filled.Home else Icons.Outlined.Home,
+                                contentDescription = null,
+                            )
+                        },
+                        label = { Text("Home") },
+                        selected = screen == SCREEN_HOME,
+                        onClick = { screen = SCREEN_HOME },
+                    )
+                    NavigationBarItem(
+                        icon = {
+                            Icon(
+                                if (screen == SCREEN_SESSIONS) Icons.Filled.List else Icons.Outlined.List,
+                                contentDescription = null,
+                            )
+                        },
+                        label = { Text("Sessions") },
+                        selected = screen == SCREEN_SESSIONS,
+                        onClick = { screen = SCREEN_SESSIONS },
+                    )
+                    NavigationBarItem(
+                        icon = {
+                            Icon(
+                                if (screen == SCREEN_SETTINGS) Icons.Filled.Settings else Icons.Outlined.Settings,
+                                contentDescription = null,
+                            )
+                        },
+                        label = { Text("Settings") },
+                        selected = screen == SCREEN_SETTINGS,
+                        onClick = { screen = SCREEN_SETTINGS },
+                    )
+                }
+            },
+        ) { padding ->
+            when (screen) {
+                SCREEN_HOME -> HomeScreen(
+                    api = api,
+                    app = app,
+                    onOpenSessions = { screen = SCREEN_SESSIONS },
+                    onNewSession = { /* TODO: implement session creation */ },
+                )
+
+                SCREEN_SETTINGS -> SettingsScreen(
+                    app = app,
+                    onBack = { screen = SCREEN_SESSIONS },
+                    modifier = Modifier.padding(padding),
+                )
+
+                else -> SessionsScreen(
+                    api = api,
+                    app = app,
+                    onOpenSession = { session ->
+                        sessionID = session.id
+                    },
+                    onOpenSettings = { screen = SCREEN_SETTINGS },
+                    modifier = Modifier.padding(padding),
+                )
+            }
         }
     }
 }

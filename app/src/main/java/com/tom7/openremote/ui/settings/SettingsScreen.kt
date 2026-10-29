@@ -64,7 +64,7 @@ import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun SettingsScreen(app: AppViewModel, onBack: () -> Unit) {
+fun SettingsScreen(app: AppViewModel, onBack: () -> Unit, modifier: Modifier = Modifier) {
     val connection by app.connection.collectAsStateWithLifecycle()
     val serverInfo by app.serverInfo.collectAsStateWithLifecycle()
     val location by app.location.collectAsStateWithLifecycle()
@@ -80,13 +80,9 @@ fun SettingsScreen(app: AppViewModel, onBack: () -> Unit) {
     var confirmReconnect by remember { mutableStateOf(false) }
 
     Scaffold(
+        modifier = modifier,
         topBar = {
             TopAppBar(
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Outlined.ArrowBack, contentDescription = "Back")
-                    }
-                },
                 title = { Text("Settings", style = MaterialTheme.typography.titleLarge) },
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = MaterialTheme.colorScheme.background,
