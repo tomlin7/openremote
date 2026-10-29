@@ -86,6 +86,7 @@ fun SessionsScreen(
     app: AppViewModel,
     onOpenSession: (SessionInfo) -> Unit,
     onOpenSettings: () -> Unit,
+    modifier: Modifier = Modifier,
 ) {
     val viewModel: SessionsViewModel = viewModel(
         key = "sessions:${app.apiKey}",
@@ -117,6 +118,7 @@ fun SessionsScreen(
     }
 
     Scaffold(
+        modifier = modifier,
         topBar = {
             TopAppBar(
                 title = {
