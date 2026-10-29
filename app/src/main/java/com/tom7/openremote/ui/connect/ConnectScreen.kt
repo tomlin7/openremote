@@ -58,11 +58,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import io.github.g00fy2.quickie.QRError
-import io.github.g00fy2.quickie.QRMissingPermission
 import io.github.g00fy2.quickie.QRResult
-import io.github.g00fy2.quickie.QRSuccess
-import io.github.g00fy2.quickie.QRUserCanceled
 import io.github.g00fy2.quickie.ScanQRCode
 import com.tom7.openremote.AppViewModel
 
@@ -80,18 +76,19 @@ fun ConnectScreen(app: AppViewModel) {
 
     val scanLauncher = rememberLauncherForActivityResult(ScanQRCode()) { result ->
         when (result) {
-            is QRSuccess -> {
+            is QRResult.QRSuccess -> {
                 val contents = result.content.rawValue
                 if (!contents.isNullOrBlank()) {
+                    permissionError = null
                     pairing = contents
                     app.pair(contents)
                 }
             }
-            is QRUserCanceled -> { /* User tapped back, no action needed */ }
-            is QRMissingPermission -> {
+            is QRResult.QRUserCanceled -> { /* User tapped back, no action needed */ }
+            is QRResult.QRMissingPermission -> {
                 permissionError = "Camera permission is required to scan QR codes. Please grant camera permission in app settings."
             }
-            is QRError -> {
+            is QRResult.QRError -> {
                 permissionError = "Scan failed: ${result.exception.message ?: "Unknown error"}"
             }
         }
