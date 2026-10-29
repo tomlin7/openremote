@@ -54,6 +54,7 @@ fun SessionPanelsSheet(
     }
 
     var selectedPanel by remember { mutableStateOf<String?>(null) }
+    var showTerminal by remember { mutableStateOf(false) }
 
     ModalBottomSheet(
         onDismissRequest = onDismiss,
@@ -72,6 +73,14 @@ fun SessionPanelsSheet(
             FilesChangedSheet(
                 messages = messages,
                 onDismiss = { selectedPanel = null },
+            )
+            return@ModalBottomSheet
+        }
+
+        if (showTerminal) {
+            TerminalSheet(
+                messages = messages,
+                onDismiss = { showTerminal = false },
             )
             return@ModalBottomSheet
         }
@@ -126,7 +135,7 @@ fun SessionPanelsSheet(
                     icon = Icons.Outlined.Terminal,
                     title = "Terminal",
                     subtitle = "${sessionActivity.terminalCalls} commands",
-                    onClick = { /* TODO: Show terminal output */ },
+                    onClick = { showTerminal = true },
                 )
                 Spacer(Modifier.height(8.dp))
             }
