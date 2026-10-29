@@ -282,6 +282,14 @@ fun ChatScreen(
                         busy = state.busy,
                         retry = state.status?.takeIf { it.type == "retry" },
                     )
+                    if (state.queued.isNotEmpty()) {
+                        QueuePanel(
+                            queued = state.queued,
+                            busy = state.busy,
+                            onSteer = { inboxID -> viewModel.steerQueued(inboxID) },
+                            onRemove = { inboxID -> viewModel.cancelQueued(inboxID) },
+                        )
+                    }
                     ChatComposer(
                         draft = draft,
                         onDraftChange = { draft = it },
