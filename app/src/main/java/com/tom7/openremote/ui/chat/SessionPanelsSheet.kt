@@ -107,6 +107,7 @@ fun SessionPanelsSheet(
             return@ModalBottomSheet
         }
 
+
         Column(
             modifier = Modifier
                 .fillMaxWidth()
