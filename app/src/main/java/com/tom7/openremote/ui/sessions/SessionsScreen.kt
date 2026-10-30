@@ -378,7 +378,7 @@ private fun SessionRow(
 }
 
 @Composable
-private fun BusyPixelIndicator(modifier: Modifier = Modifier) {
+internal fun BusyPixelIndicator(modifier: Modifier = Modifier) {
     val transition = rememberInfiniteTransition(label = "busy-pixels")
     val primary = MaterialTheme.colorScheme.primary
     val tertiary = MaterialTheme.colorScheme.tertiary
@@ -420,7 +420,7 @@ private fun BusyPixelIndicator(modifier: Modifier = Modifier) {
 }
 
 @Composable
-private fun PixelSquare(
+internal fun PixelSquare(
     color: androidx.compose.ui.graphics.Color,
     transition: InfiniteTransition,
     delay: Int,

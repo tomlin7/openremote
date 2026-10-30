@@ -9,10 +9,10 @@ import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Home
+import androidx.compose.material.icons.filled.Inbox
 import androidx.compose.material.icons.filled.List
 import androidx.compose.material.icons.filled.Settings
-import androidx.compose.material.icons.outlined.Home
+import androidx.compose.material.icons.outlined.Inbox
 import androidx.compose.material.icons.outlined.List
 import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material3.Icon
@@ -31,7 +31,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.tom7.openremote.ui.chat.ChatScreen
 import com.tom7.openremote.ui.connect.ConnectScreen
-import com.tom7.openremote.ui.home.HomeScreen
+import com.tom7.openremote.ui.inbox.InboxScreen
 import com.tom7.openremote.ui.sessions.SessionsScreen
 import com.tom7.openremote.ui.settings.SettingsScreen
 import com.tom7.openremote.ui.theme.OpenRemoteTheme
@@ -129,11 +129,11 @@ fun OpenRemoteRoot(
                     NavigationBarItem(
                         icon = {
                             Icon(
-                                if (screen == SCREEN_HOME) Icons.Filled.Home else Icons.Outlined.Home,
+                                if (screen == SCREEN_HOME) Icons.Filled.Inbox else Icons.Outlined.Inbox,
                                 contentDescription = null,
                             )
                         },
-                        label = { Text("Home") },
+                        label = { Text("Inbox") },
                         selected = screen == SCREEN_HOME,
                         onClick = { screen = SCREEN_HOME },
                     )
@@ -163,11 +163,13 @@ fun OpenRemoteRoot(
             },
         ) { padding ->
             when (screen) {
-                SCREEN_HOME -> HomeScreen(
+                SCREEN_HOME -> InboxScreen(
                     api = api,
                     app = app,
-                    onOpenSessions = { screen = SCREEN_SESSIONS },
-                    onNewSession = { /* TODO: implement session creation */ },
+                    onOpenSession = { session ->
+                        sessionID = session.id
+                    },
+                    onNewSession = { screen = SCREEN_SESSIONS },
                 )
 
                 SCREEN_SETTINGS -> SettingsScreen(
