@@ -1,11 +1,21 @@
 package com.tom7.openremote.ui.sessions
 
-import androidx.compose.foundation.BorderStroke
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -16,24 +26,27 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.outlined.Send
 import androidx.compose.material.icons.outlined.Add
 import androidx.compose.material.icons.outlined.Archive
+import androidx.compose.material.icons.outlined.Cake
+import androidx.compose.material.icons.outlined.Close
+import androidx.compose.material.icons.outlined.DarkMode
 import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material.icons.outlined.Edit
+import androidx.compose.material.icons.outlined.ExpandMore
 import androidx.compose.material.icons.outlined.Folder
+import androidx.compose.material.icons.outlined.History
+import androidx.compose.material.icons.outlined.LightMode
 import androidx.compose.material.icons.outlined.MoreVert
 import androidx.compose.material.icons.outlined.Refresh
 import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material.icons.outlined.Unarchive
-import androidx.compose.material.icons.outlined.Close
-import androidx.compose.material.icons.outlined.DarkMode
-import androidx.compose.material.icons.outlined.LightMode
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -63,7 +76,10 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -78,6 +94,12 @@ import com.tom7.openremote.data.ThemeMode
 import com.tom7.openremote.ui.common.relativeTime
 import com.tom7.openremote.ui.common.sessionSubtitle
 import java.net.URI
+import java.text.SimpleDateFormat
+import java.util.Calendar
+import java.util.Locale
+import kotlin.math.abs
+
+enum class SessionsViewMode { ByDate, ByProject }
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -109,12 +131,26 @@ fun SessionsScreen(
     var renameTarget by remember { mutableStateOf<SessionInfo?>(null) }
     var deleteTarget by remember { mutableStateOf<SessionInfo?>(null) }
     var menuTarget by remember { mutableStateOf<String?>(null) }
+    var viewMode by remember { mutableStateOf(SessionsViewMode.ByDate) }
 
     LaunchedEffect(state.toast) {
         state.toast?.let {
             snackbar.showSnackbar(it)
             viewModel.consumeToast()
         }
+    }
+
+    val grouped = remember(state.sessions, viewMode) {
+        when (viewMode) {
+            SessionsViewMode.ByDate -> groupByDate(state.sessions)
+            SessionsViewMode.ByProject -> groupByProject(state.sessions)
+        }
+    }
+    val allGroupKeys = remember(grouped) { grouped.map { it.first }.toSet() }
+    var expandedGroups by remember(viewMode) { mutableStateOf(allGroupKeys) }
+
+    LaunchedEffect(allGroupKeys) {
+        expandedGroups = expandedGroups.union(allGroupKeys)
     }
 
     Scaffold(
@@ -210,10 +246,21 @@ fun SessionsScreen(
                 )
             }
 
-            Row(
+            FlowRow(
                 modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp),
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalArrangement = Arrangement.spacedBy(6.dp),
             ) {
+                FilterChip(
+                    selected = viewMode == SessionsViewMode.ByDate,
+                    onClick = { viewMode = SessionsViewMode.ByDate },
+                    label = { Text("By date") },
+                )
+                FilterChip(
+                    selected = viewMode == SessionsViewMode.ByProject,
+                    onClick = { viewMode = SessionsViewMode.ByProject },
+                    label = { Text("By project") },
+                )
                 FilterChip(
                     selected = !state.archived,
                     onClick = { viewModel.setArchived(false) },
@@ -261,19 +308,16 @@ fun SessionsScreen(
                 modifier = Modifier.fillMaxSize(),
             ) {
                 val listState = rememberLazyListState()
-                val grouped = remember(state.sessions) {
-                    state.sessions.groupBy { it.directory }.toList()
-                }
                 LazyColumn(
                     state = listState,
                     modifier = Modifier.fillMaxSize(),
-                    contentPadding = androidx.compose.foundation.layout.PaddingValues(
+                    contentPadding = PaddingValues(
                         start = 16.dp,
                         end = 16.dp,
                         top = 6.dp,
                         bottom = 96.dp,
                     ),
-                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalArrangement = Arrangement.spacedBy(4.dp),
                 ) {
                     if (state.loading && state.sessions.isEmpty()) {
                         item {
@@ -290,51 +334,52 @@ fun SessionsScreen(
                             )
                         }
                     }
-                    grouped.forEach { (directory, sessions) ->
-                        item(key = "group:$directory") {
-                            Row(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(top = 10.dp, bottom = 2.dp),
-                                verticalAlignment = Alignment.CenterVertically,
-                            ) {
-                                Icon(
-                                    Icons.Outlined.Folder,
-                                    contentDescription = null,
-                                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    modifier = Modifier.size(14.dp),
-                                )
-                                Spacer(Modifier.width(7.dp))
-                                Text(
-                                    text = directory.ifBlank { "Server" },
-                                    style = MaterialTheme.typography.labelMedium,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis,
-                                    modifier = Modifier.weight(1f),
-                                )
-                                Text(
-                                    text = sessions.size.toString(),
-                                    style = MaterialTheme.typography.labelSmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+                    grouped.forEach { (label, sessions) ->
+                        val expanded = label in expandedGroups
+                        item(key = "header:$label") {
+                            GroupHeader(
+                                label = label,
+                                count = sessions.size,
+                                expanded = expanded,
+                                path = if (viewMode == SessionsViewMode.ByProject) sessions.firstOrNull()?.directory else null,
+                                icon = if (viewMode == SessionsViewMode.ByDate) Icons.Outlined.History else Icons.Outlined.Folder,
+                                onClick = {
+                                    expandedGroups = if (expanded) expandedGroups - label else expandedGroups + label
+                                },
+                                action = if (label == "Today" && viewMode == SessionsViewMode.ByDate) {
+                                    {
+                                        IconButton(
+                                            onClick = { showNewSession = true },
+                                            modifier = Modifier.size(28.dp),
+                                        ) {
+                                            Icon(
+                                                Icons.Outlined.Add,
+                                                contentDescription = "New session",
+                                                modifier = Modifier.size(16.dp),
+                                            )
+                                        }
+                                    }
+                                } else null,
+                            )
+                        }
+                        if (expanded) {
+                            items(sessions, key = { it.id }) { session ->
+                                SessionRow(
+                                    session = session,
+                                    busy = session.id in state.busy,
+                                    showDirectory = viewMode == SessionsViewMode.ByDate,
+                                    menuOpen = menuTarget == session.id,
+                                    onOpen = { onOpenSession(session) },
+                                    onMenu = { menuTarget = if (menuTarget == session.id) null else session.id },
+                                    onDismissMenu = { menuTarget = null },
+                                    onRename = { menuTarget = null; renameTarget = session },
+                                    onArchive = {
+                                        menuTarget = null
+                                        viewModel.archive(session, !state.archived)
+                                    },
+                                    onDelete = { menuTarget = null; deleteTarget = session },
                                 )
                             }
-                        }
-                        items(sessions, key = { it.id }) { session ->
-                            SessionRow(
-                                session = session,
-                                busy = session.id in state.busy,
-                                menuOpen = menuTarget == session.id,
-                                onOpen = { onOpenSession(session) },
-                                onMenu = { menuTarget = if (menuTarget == session.id) null else session.id },
-                                onDismissMenu = { menuTarget = null },
-                                onRename = { menuTarget = null; renameTarget = session },
-                                onArchive = {
-                                    menuTarget = null
-                                    viewModel.archive(session, !state.archived)
-                                },
-                                onDelete = { menuTarget = null; deleteTarget = session },
-                            )
                         }
                     }
                     if (state.hasMore) {
@@ -404,9 +449,80 @@ fun SessionsScreen(
 }
 
 @Composable
+private fun GroupHeader(
+    label: String,
+    count: Int,
+    expanded: Boolean,
+    path: String?,
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    onClick: () -> Unit,
+    action: @Composable (() -> Unit)? = null,
+) {
+    val rotation by animateFloatAsState(
+        targetValue = if (expanded) 0f else -90f,
+        animationSpec = spring(stiffness = Spring.StiffnessMedium),
+        label = "chevronRotation"
+    )
+
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick)
+            .padding(vertical = 8.dp, horizontal = 4.dp),
+    ) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier.fillMaxWidth(),
+        ) {
+            Icon(
+                Icons.Outlined.ExpandMore,
+                contentDescription = if (expanded) "Collapse" else "Expand",
+                modifier = Modifier
+                    .size(18.dp)
+                    .rotate(rotation),
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Spacer(Modifier.width(6.dp))
+            Icon(
+                icon,
+                contentDescription = null,
+                modifier = Modifier.size(14.dp),
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Spacer(Modifier.width(8.dp))
+            Text(
+                text = label,
+                style = MaterialTheme.typography.labelLarge,
+                color = MaterialTheme.colorScheme.onSurface,
+                fontWeight = FontWeight.Medium,
+                modifier = Modifier.weight(1f),
+            )
+            action?.invoke()
+            Spacer(Modifier.width(8.dp))
+            Text(
+                text = count.toString(),
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
+            )
+        }
+        if (path != null && path.isNotBlank()) {
+            Text(
+                text = truncatedPath(path),
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
+                modifier = Modifier.padding(start = 32.dp, top = 2.dp),
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+        }
+    }
+}
+
+@Composable
 private fun SessionRow(
     session: SessionInfo,
     busy: Boolean,
+    showDirectory: Boolean,
     menuOpen: Boolean,
     onOpen: () -> Unit,
     onMenu: () -> Unit,
@@ -415,38 +531,42 @@ private fun SessionRow(
     onArchive: () -> Unit,
     onDelete: () -> Unit,
 ) {
-    val statusColor = when {
-        busy -> MaterialTheme.colorScheme.primary
-        session.outcome == "failed" -> MaterialTheme.colorScheme.error
-        session.outcome == "interrupted" -> MaterialTheme.colorScheme.onSurfaceVariant
-        else -> MaterialTheme.colorScheme.tertiary.copy(alpha = 0.65f)
-    }
     Card(
         modifier = Modifier
             .fillMaxWidth()
             .clickable(onClick = onOpen),
-        shape = RoundedCornerShape(16.dp),
+        shape = RoundedCornerShape(14.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
     ) {
         Row(
-            modifier = Modifier.padding(start = 14.dp, top = 12.dp, bottom = 12.dp, end = 4.dp),
+            modifier = Modifier.padding(start = 12.dp, top = 10.dp, bottom = 10.dp, end = 4.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            Box(
-                Modifier
-                    .size(8.dp)
-                    .background(statusColor, CircleShape),
-            )
-            Spacer(Modifier.width(12.dp))
+            SessionAvatar(avatarText(session), Modifier.size(30.dp))
+            if (busy) {
+                Spacer(Modifier.width(6.dp))
+                RunningIndicator()
+            }
+            Spacer(Modifier.width(10.dp))
             Column(Modifier.weight(1f)) {
                 Text(
                     text = session.displayTitle,
                     style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.Medium,
                     maxLines = 2,
                     overflow = TextOverflow.Ellipsis,
                 )
-                Spacer(Modifier.height(3.dp))
+                if (showDirectory && session.directory.isNotBlank()) {
+                    Spacer(Modifier.height(2.dp))
+                    Text(
+                        text = folderName(session.directory),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                }
+                Spacer(Modifier.height(2.dp))
                 Text(
                     text = buildString {
                         append(sessionSubtitle(session))
@@ -500,6 +620,52 @@ private fun SessionRow(
 }
 
 @Composable
+private fun SessionAvatar(text: String, modifier: Modifier = Modifier) {
+    val letter = text.firstOrNull()?.uppercaseChar()?.toString() ?: "?"
+    val color = remember(text) { avatarColor(text) }
+    Box(
+        modifier = modifier
+            .clip(CircleShape)
+            .background(color),
+        contentAlignment = Alignment.Center,
+    ) {
+        Text(
+            text = letter,
+            style = MaterialTheme.typography.labelMedium,
+            color = Color.White,
+            fontWeight = FontWeight.Bold,
+        )
+    }
+}
+
+@Composable
+private fun RunningIndicator(modifier: Modifier = Modifier) {
+    val transition = rememberInfiniteTransition(label = "running")
+    Row(
+        modifier = modifier,
+        horizontalArrangement = Arrangement.spacedBy(2.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        repeat(3) { i ->
+            val alpha by transition.animateFloat(
+                initialValue = 0.2f,
+                targetValue = 1f,
+                animationSpec = infiniteRepeatable(
+                    animation = tween(500, delayMillis = i * 150),
+                    repeatMode = RepeatMode.Reverse
+                ),
+                label = "pixel$i"
+            )
+            Box(
+                Modifier
+                    .size(3.dp)
+                    .background(MaterialTheme.colorScheme.primary.copy(alpha = alpha))
+            )
+        }
+    }
+}
+
+@Composable
 private fun EmptySessions(archived: Boolean, onNew: () -> Unit, modifier: Modifier = Modifier) {
     Column(
         modifier = modifier.fillMaxWidth(),
@@ -544,6 +710,79 @@ private fun RenameDialog(session: SessionInfo, onDismiss: () -> Unit, onRename: 
         },
         dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
     )
+}
+
+// --- Grouping ---
+
+private fun groupByDate(sessions: List<SessionInfo>): List<Pair<String, List<SessionInfo>>> {
+    val order = listOf("Today", "Yesterday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday", "Older")
+    val groups = linkedMapOf<String, MutableList<SessionInfo>>()
+
+    for (session in sessions.sortedByDescending { it.time.updated }) {
+        val label = dateGroupLabel(session.time.updated)
+        groups.getOrPut(label) { mutableListOf() }.add(session)
+    }
+
+    return order.flatMap { key ->
+        groups[key]?.let { listOf(key to it) } ?: emptyList()
+    }
+}
+
+private fun groupByProject(sessions: List<SessionInfo>): List<Pair<String, List<SessionInfo>>> {
+    return sessions
+        .groupBy { it.directory.ifBlank { "Server" } }
+        .toList()
+}
+
+private fun dateGroupLabel(millis: Long): String {
+    if (millis <= 0) return "Older"
+    val cal = Calendar.getInstance()
+    cal.set(Calendar.HOUR_OF_DAY, 0)
+    cal.set(Calendar.MINUTE, 0)
+    cal.set(Calendar.SECOND, 0)
+    cal.set(Calendar.MILLISECOND, 0)
+    val todayStart = cal.timeInMillis
+    val yesterdayStart = todayStart - 86_400_000
+    val weekStart = todayStart - 7L * 86_400_000
+
+    return when {
+        millis >= todayStart -> "Today"
+        millis >= yesterdayStart -> "Yesterday"
+        millis >= weekStart -> {
+            cal.timeInMillis = millis
+            SimpleDateFormat("EEEE", Locale.getDefault()).format(cal.time)
+        }
+        else -> "Older"
+    }
+}
+
+// --- Helpers ---
+
+private fun folderName(path: String): String =
+    path.trimEnd('/', '\\').substringAfterLast('/').substringAfterLast('\\').ifBlank { "Server" }
+
+private fun truncatedPath(path: String, maxChars: Int = 32): String =
+    if (path.length <= maxChars) path else "…${path.takeLast(maxChars - 1)}"
+
+private fun avatarText(session: SessionInfo): String {
+    val dir = session.directory
+    val name = if (dir.isBlank()) session.displayTitle else folderName(dir)
+    return name.firstOrNull()?.uppercaseChar()?.toString() ?: "?"
+}
+
+private fun avatarColor(text: String): Color {
+    val hash = abs(text.hashCode())
+    val palette = listOf(
+        Color(0xFF4A7FC4),
+        Color(0xFF6B52A3),
+        Color(0xFF2D8A6E),
+        Color(0xFFB07428),
+        Color(0xFFB84848),
+        Color(0xFF3A8FAF),
+        Color(0xFF8560B0),
+        Color(0xFF2FA08A),
+    )
+    return palette[hash % palette.size]
 }
 
 private fun serverHost(url: String): String = runCatching {
