@@ -59,14 +59,21 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.spring
 import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.scale
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.pointer.PointerEventTimeoutCancellationException
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.IntOffset
@@ -287,24 +294,35 @@ fun ChatComposer(
                         }
                     }
                     
-                    // Gesture-based send button
+                    // Gesture-based send button with ghost refinement
                     val sendEnabled = (draft.isNotBlank() || attachments.isNotEmpty()) && !sending
                     var isLongPressing by remember { mutableStateOf(false) }
                     var showQueueHint by remember { mutableStateOf(false) }
                     var deliveryMode by remember { mutableStateOf("steer") }
+                    var dragOffsetY by remember { mutableStateOf(0f) }
+                    var isInQueueZone by remember { mutableStateOf(false) }
+                    val haptic = LocalHapticFeedback.current
+                    
+                    // Animate scale for ghost button
+                    val ghostScale by animateFloatAsState(
+                        targetValue = if (isLongPressing) 1.35f else 1f,
+                        animationSpec = spring(stiffness = Spring.StiffnessMedium),
+                        label = "ghostScale"
+                    )
                     
                     Box(
                         modifier = Modifier.size(40.dp),
                         contentAlignment = Alignment.Center,
                     ) {
+                        // Original button (stays in place)
                         Box(
                             modifier = Modifier
                                 .size(40.dp)
                                 .clip(RoundedCornerShape(13.dp))
                                 .background(
                                     when {
+                                        isLongPressing -> Color.Transparent
                                         sending -> MaterialTheme.colorScheme.primary.copy(alpha = 0.5f)
-                                        isLongPressing && deliveryMode == "queue" -> MaterialTheme.colorScheme.tertiary
                                         sendEnabled -> MaterialTheme.colorScheme.primary
                                         else -> MaterialTheme.colorScheme.surfaceVariant
                                     }
@@ -314,22 +332,37 @@ fun ChatComposer(
                                     
                                     if (busy) {
                                         // When busy: tap = steer, long press + slide up = queue
-                                        var dragThresholdReached = false
                                         var startY = 0f
+                                        var wasInQueueZone = false
                                         
                                         detectDragGesturesAfterLongPress(
                                             onDragStart = { offset ->
                                                 startY = offset.y
-                                                dragThresholdReached = false
                                                 isLongPressing = true
                                                 showQueueHint = true
                                                 deliveryMode = "steer"
+                                                dragOffsetY = 0f
+                                                isInQueueZone = false
+                                                wasInQueueZone = false
+                                                // Initial haptic feedback
+                                                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                                             },
                                             onDrag = { change, dragAmount ->
                                                 change.consume()
+                                                // Track offset for ghost button position
+                                                dragOffsetY = change.position.y - startY
                                                 val totalDrag = startY - change.position.y
-                                                if (totalDrag > 30f) {
-                                                    dragThresholdReached = true
+                                                
+                                                // Check if we've entered queue zone
+                                                val inQueue = totalDrag > 30f
+                                                if (inQueue && !wasInQueueZone) {
+                                                    // Entered queue zone - trigger haptic feedback
+                                                    haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                                }
+                                                wasInQueueZone = inQueue
+                                                isInQueueZone = inQueue
+                                                
+                                                if (inQueue) {
                                                     deliveryMode = "queue"
                                                 } else if (totalDrag < -30f) {
                                                     deliveryMode = "steer"
@@ -338,15 +371,19 @@ fun ChatComposer(
                                             onDragEnd = {
                                                 isLongPressing = false
                                                 showQueueHint = false
+                                                dragOffsetY = 0f
                                                 if (draft.isNotBlank() || attachments.isNotEmpty()) {
                                                     onSend(draft, attachments, deliveryMode)
                                                     onDraftChange("")
                                                     onAttachmentsChange(emptyList())
                                                 }
+                                                isInQueueZone = false
                                             },
                                             onDragCancel = {
                                                 isLongPressing = false
                                                 showQueueHint = false
+                                                dragOffsetY = 0f
+                                                isInQueueZone = false
                                             },
                                         )
                                     } else {
@@ -364,23 +401,43 @@ fun ChatComposer(
                                 },
                             contentAlignment = Alignment.Center,
                         ) {
-                            if (sending) {
+                            if (sending && !isLongPressing) {
                                 CircularProgressIndicator(
                                     Modifier.size(17.dp),
                                     strokeWidth = 2.dp,
                                     color = MaterialTheme.colorScheme.onPrimary,
                                 )
-                            } else {
+                            } else if (!isLongPressing) {
                                 Icon(
-                                    when {
-                                        showQueueHint && deliveryMode == "queue" -> Icons.Outlined.ArrowUpward
-                                        else -> Icons.AutoMirrored.Outlined.Send
-                                    },
-                                    contentDescription = when {
-                                        showQueueHint && deliveryMode == "queue" -> "Queue message"
-                                        else -> "Send"
-                                    },
+                                    Icons.AutoMirrored.Outlined.Send,
+                                    contentDescription = "Send",
                                     tint = if (sendEnabled) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant,
+                                    modifier = Modifier.size(19.dp),
+                                )
+                            }
+                        }
+                        
+                        // Ghost button (follows finger during drag)
+                        if (isLongPressing) {
+                            Box(
+                                modifier = Modifier
+                                    .scale(ghostScale)
+                                    .offset(y = dragOffsetY.dp)
+                                    .size(40.dp)
+                                    .clip(RoundedCornerShape(13.dp))
+                                    .background(
+                                        if (isInQueueZone) {
+                                            MaterialTheme.colorScheme.tertiary
+                                        } else {
+                                            MaterialTheme.colorScheme.primary
+                                        }
+                                    ),
+                                contentAlignment = Alignment.Center,
+                            ) {
+                                Icon(
+                                    if (isInQueueZone) Icons.Outlined.ArrowUpward else Icons.AutoMirrored.Outlined.Send,
+                                    contentDescription = if (isInQueueZone) "Queue message" else "Send",
+                                    tint = MaterialTheme.colorScheme.onPrimary,
                                     modifier = Modifier.size(19.dp),
                                 )
                             }
