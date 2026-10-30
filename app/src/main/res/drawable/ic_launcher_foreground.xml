@@ -4,31 +4,43 @@
     android:height="108dp"
     android:viewportWidth="108"
     android:viewportHeight="108">
+    <!-- Two overlapping device outlines representing local and remote -->
+    <!-- Left device (local) -->
     <path
         android:fillColor="#00000000"
-        android:pathData="M35,38h38a6,6 0 0 1 6,6v20a6,6 0 0 1 -6,6h-38a6,6 0 0 1 -6,-6v-20a6,6 0 0 1 6,-6z"
-        android:strokeColor="#AEAEAE"
+        android:pathData="M32,36h20a4,4 0 0 1 4,4v28a4,4 0 0 1 -4,4h-20a4,4 0 0 1 -4,-4v-28a4,4 0 0 1 4,-4z"
+        android:strokeColor="#F17471"
         android:strokeLineCap="round"
         android:strokeLineJoin="round"
-        android:strokeWidth="3.4" />
+        android:strokeWidth="3" />
+    <!-- Right device (remote) -->
     <path
         android:fillColor="#00000000"
-        android:pathData="M31,46h46"
-        android:strokeColor="#AEAEAE"
-        android:strokeAlpha="0.5"
-        android:strokeLineCap="round"
-        android:strokeWidth="2.2" />
-    <path
-        android:fillColor="#00000000"
-        android:pathData="M40,52l7,5l-7,5"
-        android:strokeColor="#AEAEAE"
+        android:pathData="M56,40h20a4,4 0 0 1 4,4v28a4,4 0 0 1 -4,4h-20a4,4 0 0 1 -4,-4v-28a4,4 0 0 1 4,-4z"
+        android:strokeColor="#FFFFFF"
         android:strokeLineCap="round"
         android:strokeLineJoin="round"
-        android:strokeWidth="3.2" />
+        android:strokeWidth="3" />
+    <!-- Connection line between devices -->
     <path
         android:fillColor="#00000000"
-        android:pathData="M51,62h9"
-        android:strokeColor="#AEAEAE"
+        android:pathData="M52,54h8"
+        android:strokeColor="#F17471"
         android:strokeLineCap="round"
-        android:strokeWidth="3.2" />
+        android:strokeWidth="3" />
+    <!-- Signal waves from remote device -->
+    <path
+        android:fillColor="#00000000"
+        android:pathData="M72,48a8,8 0 0 1 0,12"
+        android:strokeColor="#FFFFFF"
+        android:strokeLineCap="round"
+        android:strokeWidth="2.5"
+        android:strokeAlpha="0.7" />
+    <path
+        android:fillColor="#00000000"
+        android:pathData="M76,44a14,14 0 0 1 0,20"
+        android:strokeColor="#FFFFFF"
+        android:strokeLineCap="round"
+        android:strokeWidth="2.5"
+        android:strokeAlpha="0.4" />
 </vector>
