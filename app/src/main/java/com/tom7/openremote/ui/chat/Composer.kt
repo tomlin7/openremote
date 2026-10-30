@@ -9,6 +9,9 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -19,6 +22,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -29,6 +33,7 @@ import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.Send
+import androidx.compose.material.icons.outlined.ArrowUpward
 import androidx.compose.material.icons.outlined.AttachFile
 import androidx.compose.material.icons.outlined.Bolt
 import androidx.compose.material.icons.outlined.Close
@@ -54,12 +59,17 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.input.pointer.PointerEventTimeoutCancellationException
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
@@ -267,66 +277,6 @@ fun ChatComposer(
                     )
                     Spacer(Modifier.weight(1f))
                     if (busy) {
-                        var deliveryMenu by remember { mutableStateOf(false) }
-                        Box {
-                            AssistChip(
-                                onClick = { deliveryMenu = true },
-                                leadingIcon = {
-                                    Icon(
-                                        Icons.Outlined.SwapVert,
-                                        contentDescription = null,
-                                        modifier = Modifier.size(14.dp),
-                                    )
-                                },
-                                label = {
-                                    Text(
-                                        if (delivery == "queue") "Queue" else "Steer",
-                                        style = MaterialTheme.typography.labelSmall,
-                                    )
-                                },
-                                shape = RoundedCornerShape(9.dp),
-                                colors = AssistChipDefaults.assistChipColors(
-                                    containerColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.14f),
-                                    labelColor = MaterialTheme.colorScheme.primary,
-                                ),
-                                border = null,
-                            )
-                            DropdownMenu(expanded = deliveryMenu, onDismissRequest = { deliveryMenu = false }) {
-                                DropdownMenuItem(
-                                    text = {
-                                        Column {
-                                            Text("Steer")
-                                            Text(
-                                                "Redirect this run at the next step",
-                                                style = MaterialTheme.typography.bodySmall,
-                                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                            )
-                                        }
-                                    },
-                                    onClick = {
-                                        onDeliveryChange("steer")
-                                        deliveryMenu = false
-                                    },
-                                )
-                                DropdownMenuItem(
-                                    text = {
-                                        Column {
-                                            Text("Queue")
-                                            Text(
-                                                "Send after this run finishes",
-                                                style = MaterialTheme.typography.bodySmall,
-                                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                            )
-                                        }
-                                    },
-                                    onClick = {
-                                        onDeliveryChange("queue")
-                                        deliveryMenu = false
-                                    },
-                                )
-                            }
-                        }
-                        Spacer(Modifier.width(4.dp))
                         IconButton(onClick = onStop, modifier = Modifier.size(38.dp)) {
                             Icon(
                                 Icons.Outlined.StopCircle,
@@ -336,33 +286,115 @@ fun ChatComposer(
                             )
                         }
                     }
-                    FilledIconButton(
-                        onClick = {
-                            if (draft.isNotBlank() || attachments.isNotEmpty()) {
-                                onSend(
-                                    draft,
-                                    attachments,
-                                    if (busy) delivery else null,
-                                )
-                                onDraftChange("")
-                                onAttachmentsChange(emptyList())
-                            }
-                        },
-                        enabled = (draft.isNotBlank() || attachments.isNotEmpty()) && !sending,
-                        shape = RoundedCornerShape(13.dp),
+                    
+                    // Gesture-based send button
+                    val sendEnabled = (draft.isNotBlank() || attachments.isNotEmpty()) && !sending
+                    var isLongPressing by remember { mutableStateOf(false) }
+                    var showQueueHint by remember { mutableStateOf(false) }
+                    var deliveryMode by remember { mutableStateOf("steer") }
+                    
+                    Box(
                         modifier = Modifier.size(40.dp),
+                        contentAlignment = Alignment.Center,
                     ) {
-                        if (sending) {
-                            CircularProgressIndicator(
-                                Modifier.size(17.dp),
-                                strokeWidth = 2.dp,
-                                color = MaterialTheme.colorScheme.onPrimary,
-                            )
-                        } else {
-                            Icon(
-                                Icons.AutoMirrored.Outlined.Send,
-                                contentDescription = "Send",
-                                modifier = Modifier.size(19.dp),
+                        Box(
+                            modifier = Modifier
+                                .size(40.dp)
+                                .clip(RoundedCornerShape(13.dp))
+                                .background(
+                                    when {
+                                        sending -> MaterialTheme.colorScheme.primary.copy(alpha = 0.5f)
+                                        isLongPressing && deliveryMode == "queue" -> MaterialTheme.colorScheme.tertiary
+                                        sendEnabled -> MaterialTheme.colorScheme.primary
+                                        else -> MaterialTheme.colorScheme.surfaceVariant
+                                    }
+                                )
+                                .pointerInput(busy, sendEnabled) {
+                                    if (!sendEnabled) return@pointerInput
+                                    
+                                    if (busy) {
+                                        // When busy: tap = steer, long press + slide up = queue
+                                        var dragThresholdReached = false
+                                        var startY = 0f
+                                        
+                                        detectDragGesturesAfterLongPress(
+                                            onDragStart = { offset ->
+                                                startY = offset.y
+                                                dragThresholdReached = false
+                                                isLongPressing = true
+                                                showQueueHint = true
+                                                deliveryMode = "steer"
+                                            },
+                                            onDrag = { change, dragAmount ->
+                                                change.consume()
+                                                val totalDrag = startY - change.position.y
+                                                if (totalDrag > 30f) {
+                                                    dragThresholdReached = true
+                                                    deliveryMode = "queue"
+                                                } else if (totalDrag < -30f) {
+                                                    deliveryMode = "steer"
+                                                }
+                                            },
+                                            onDragEnd = {
+                                                isLongPressing = false
+                                                showQueueHint = false
+                                                if (draft.isNotBlank() || attachments.isNotEmpty()) {
+                                                    onSend(draft, attachments, deliveryMode)
+                                                    onDraftChange("")
+                                                    onAttachmentsChange(emptyList())
+                                                }
+                                            },
+                                            onDragCancel = {
+                                                isLongPressing = false
+                                                showQueueHint = false
+                                            },
+                                        )
+                                    } else {
+                                        // When not busy: simple tap to send
+                                        detectTapGestures(
+                                            onTap = {
+                                                if (draft.isNotBlank() || attachments.isNotEmpty()) {
+                                                    onSend(draft, attachments, null)
+                                                    onDraftChange("")
+                                                    onAttachmentsChange(emptyList())
+                                                }
+                                            },
+                                        )
+                                    }
+                                },
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            if (sending) {
+                                CircularProgressIndicator(
+                                    Modifier.size(17.dp),
+                                    strokeWidth = 2.dp,
+                                    color = MaterialTheme.colorScheme.onPrimary,
+                                )
+                            } else {
+                                Icon(
+                                    when {
+                                        showQueueHint && deliveryMode == "queue" -> Icons.Outlined.ArrowUpward
+                                        else -> Icons.AutoMirrored.Outlined.Send
+                                    },
+                                    contentDescription = when {
+                                        showQueueHint && deliveryMode == "queue" -> "Queue message"
+                                        else -> "Send"
+                                    },
+                                    tint = if (sendEnabled) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant,
+                                    modifier = Modifier.size(19.dp),
+                                )
+                            }
+                        }
+                        
+                        // Show queue hint overlay
+                        if (showQueueHint && busy) {
+                            Text(
+                                text = if (deliveryMode == "queue") "Release to queue" else "Slide up to queue",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.tertiary,
+                                modifier = Modifier
+                                    .align(Alignment.BottomCenter)
+                                    .offset(y = 24.dp),
                             )
                         }
                     }
