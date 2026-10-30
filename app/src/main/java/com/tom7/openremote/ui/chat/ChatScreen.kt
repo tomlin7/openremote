@@ -24,7 +24,9 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowBack
 import androidx.compose.material.icons.automirrored.outlined.CallSplit
 import androidx.compose.material.icons.outlined.Archive
+import androidx.compose.material.icons.outlined.Code
 import androidx.compose.material.icons.outlined.Compress
+import androidx.compose.material.icons.outlined.Dashboard
 import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material.icons.outlined.Edit
 import androidx.compose.material.icons.outlined.MoreVert
@@ -53,11 +55,13 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -72,6 +76,7 @@ import com.tom7.openremote.data.PermissionRequest
 import com.tom7.openremote.ui.pickers.AgentPickerSheet
 import com.tom7.openremote.ui.pickers.CommandPickerSheet
 import com.tom7.openremote.ui.pickers.ModelPickerSheet
+import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -94,6 +99,11 @@ fun ChatScreen(
     val showReasoning by app.showReasoning.collectAsStateWithLifecycle()
 
     val snackbar = remember { SnackbarHostState() }
+    val scope = rememberCoroutineScope()
+    val context = LocalContext.current
+    val connection by app.connection.collectAsStateWithLifecycle()
+    val location by app.location.collectAsStateWithLifecycle()
+    val sessionDirectory = state.session?.directory.orEmpty().ifBlank { location?.directory.orEmpty() }
     val listState = rememberLazyListState()
 
     var draft by rememberSaveable(sessionID) { mutableStateOf("") }
@@ -213,8 +223,26 @@ fun ChatScreen(
                     }
                 },
                 actions = {
+                    val activeConnection = connection
+                    if (activeConnection != null && sessionDirectory.isNotBlank()) {
+                        IconButton(
+                            onClick = {
+                                val opened = openInOpenText(
+                                    context = context,
+                                    url = activeConnection.url,
+                                    password = activeConnection.password,
+                                    directory = sessionDirectory,
+                                )
+                                if (!opened) {
+                                    scope.launch { snackbar.showSnackbar("Install OpenText to edit this folder.") }
+                                }
+                            },
+                        ) {
+                            Icon(Icons.Outlined.Code, contentDescription = "Edit in OpenText")
+                        }
+                    }
                     IconButton(onClick = { showPanels = true }) {
-                        Icon(Icons.AutoMirrored.Outlined.ViewSidebar, contentDescription = "Session panels")
+                        Icon(Icons.Outlined.Dashboard, contentDescription = "Session panels")
                     }
                     Box {
                         IconButton(onClick = { showMenu = true }) {
