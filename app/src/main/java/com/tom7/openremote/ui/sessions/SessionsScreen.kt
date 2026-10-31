@@ -38,6 +38,7 @@ fun SessionsScreen(
     app: AppViewModel,
     onOpenSession: (SessionInfo) -> Unit,
     onOpenSettings: () -> Unit,
+    onNewSession: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val viewModel: SessionsViewModel = viewModel(
@@ -50,7 +51,6 @@ fun SessionsScreen(
     val snackbar = remember { SnackbarHostState() }
 
     var searchOpen by remember { mutableStateOf(false) }
-    var showNewSession by remember { mutableStateOf(false) }
     var renameTarget by remember { mutableStateOf<SessionInfo?>(null) }
     var deleteTarget by remember { mutableStateOf<SessionInfo?>(null) }
     var menuTarget by remember { mutableStateOf<String?>(null) }
@@ -112,7 +112,7 @@ fun SessionsScreen(
         },
         floatingActionButton = {
             FloatingActionButton(
-                onClick = { showNewSession = true },
+                onClick = onNewSession,
                 containerColor = MaterialTheme.colorScheme.primary,
                 contentColor = MaterialTheme.colorScheme.onPrimary,
                 shape = RoundedCornerShape(16.dp),
@@ -156,7 +156,7 @@ fun SessionsScreen(
                     item {
                         EmptySessions(
                             archived = state.archived,
-                            onNew = { showNewSession = true },
+                            onNew = onNewSession,
                             modifier = Modifier.padding(top = 72.dp),
                         )
                     }
@@ -194,22 +194,6 @@ fun SessionsScreen(
                 }
             }
         }
-    }
-
-    if (showNewSession) {
-        NewSessionSheet(
-            projects = state.projects,
-            defaultDirectory = state.defaultDirectory,
-            agents = state.agents,
-            creating = state.creating,
-            onDismiss = { showNewSession = false },
-            onCreate = { directory, title, agent ->
-                viewModel.createSession(directory, title, agent, null) { session ->
-                    showNewSession = false
-                    onOpenSession(session)
-                }
-            },
-        )
     }
 
     renameTarget?.let { session ->

@@ -37,6 +37,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.tom7.openremote.ui.chat.ChatScreen
 import com.tom7.openremote.ui.connect.ConnectScreen
 import com.tom7.openremote.ui.inbox.InboxScreen
+import com.tom7.openremote.ui.newsession.NewSessionScreen
 import com.tom7.openremote.ui.sessions.SessionsScreen
 import com.tom7.openremote.ui.settings.SettingsScreen
 import com.tom7.openremote.ui.theme.OpenRemoteTheme
@@ -90,6 +91,7 @@ private fun pairingInput(intent: Intent?): String? {
 private const val SCREEN_HOME = "home"
 private const val SCREEN_SESSIONS = "sessions"
 private const val SCREEN_SETTINGS = "settings"
+private const val SCREEN_NEW_SESSION = "new_session"
 
 @Composable
 fun OpenRemoteRoot(
@@ -114,11 +116,13 @@ fun OpenRemoteRoot(
         }
 
         BackHandler(enabled = connection != null && screen != SCREEN_SESSIONS && sessionID != null) {
-            if (sessionID != null) {
-                sessionID = null
-                screen = SCREEN_SESSIONS
-            } else {
-                screen = SCREEN_SESSIONS
+            when {
+                sessionID != null -> {
+                    sessionID = null
+                    screen = SCREEN_SESSIONS
+                }
+                screen == SCREEN_NEW_SESSION -> screen = SCREEN_HOME
+                else -> screen = SCREEN_SESSIONS
             }
         }
 
@@ -190,7 +194,16 @@ fun OpenRemoteRoot(
                     onOpenSession = { session ->
                         sessionID = session.id
                     },
-                    onNewSession = { screen = SCREEN_SESSIONS },
+                    onNewSession = { screen = SCREEN_NEW_SESSION },
+                )
+
+                SCREEN_NEW_SESSION -> NewSessionScreen(
+                    api = api,
+                    app = app,
+                    onBack = { screen = SCREEN_HOME },
+                    onCreated = { session ->
+                        sessionID = session.id
+                    },
                 )
 
                 SCREEN_SETTINGS -> SettingsScreen(
@@ -206,6 +219,7 @@ fun OpenRemoteRoot(
                         sessionID = session.id
                     },
                     onOpenSettings = { screen = SCREEN_SETTINGS },
+                    onNewSession = { screen = SCREEN_NEW_SESSION },
                     modifier = Modifier.padding(padding),
                 )
             }
