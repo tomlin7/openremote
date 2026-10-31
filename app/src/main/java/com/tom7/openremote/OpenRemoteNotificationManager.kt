@@ -17,11 +17,15 @@ object OpenRemoteNotificationManager {
     private const val NOTIFICATION_GROUP = "com.tom7.openremote.SESSION_NOTIFICATIONS"
 
     fun createNotificationChannels(context: Context) {
+        if (android.os.Build.VERSION.SDK_INT < android.os.Build.VERSION_CODES.O) {
+            return // Notification channels not available before API 26
+        }
+
         val notificationManager = ContextCompat.getSystemService(context, NotificationManager::class.java)
         if (notificationManager == null) return
 
         // Success channel - pleasant notification sound
-        val successChannel = NotificationChannel(
+        val successChannel = android.app.NotificationChannel(
             CHANNEL_ID_SUCCESS,
             "Session Completed",
             NotificationManager.IMPORTANCE_HIGH
@@ -39,7 +43,7 @@ object OpenRemoteNotificationManager {
         }
 
         // Failure channel - more urgent sound
-        val failureChannel = NotificationChannel(
+        val failureChannel = android.app.NotificationChannel(
             CHANNEL_ID_FAILURE,
             "Session Failed",
             NotificationManager.IMPORTANCE_HIGH
@@ -57,7 +61,7 @@ object OpenRemoteNotificationManager {
         }
 
         // Interrupted channel - different sound
-        val interruptedChannel = NotificationChannel(
+        val interruptedChannel = android.app.NotificationChannel(
             CHANNEL_ID_INTERRUPTED,
             "Session Interrupted",
             NotificationManager.IMPORTANCE_DEFAULT
@@ -80,29 +84,33 @@ object OpenRemoteNotificationManager {
     }
 
     fun notifySessionCompleted(context: Context, sessionTitle: String, outcome: String?) {
-        val channelId = when (outcome) {
-            "failed" -> CHANNEL_ID_FAILURE
-            "interrupted" -> CHANNEL_ID_INTERRUPTED
-            else -> CHANNEL_ID_SUCCESS
+        try {
+            val channelId = when (outcome) {
+                "failed" -> CHANNEL_ID_FAILURE
+                "interrupted" -> CHANNEL_ID_INTERRUPTED
+                else -> CHANNEL_ID_SUCCESS
+            }
+
+            val title = when (outcome) {
+                "failed" -> "Session Failed"
+                "interrupted" -> "Session Interrupted"
+                else -> "Session Completed"
+            }
+
+            val notification = NotificationCompat.Builder(context, channelId)
+                .setSmallIcon(android.R.drawable.ic_dialog_info)
+                .setContentTitle(title)
+                .setContentText(sessionTitle)
+                .setStyle(NotificationCompat.BigTextStyle().bigText(sessionTitle))
+                .setPriority(NotificationCompat.PRIORITY_HIGH)
+                .setAutoCancel(true)
+                .setGroup(NOTIFICATION_GROUP)
+                .build()
+
+            val notificationManager = ContextCompat.getSystemService(context, NotificationManager::class.java)
+            notificationManager?.notify(System.currentTimeMillis().toInt(), notification)
+        } catch (e: Exception) {
+            android.util.Log.e("OpenRemoteNotificationManager", "Failed to show notification", e)
         }
-
-        val title = when (outcome) {
-            "failed" -> "Session Failed"
-            "interrupted" -> "Session Interrupted"
-            else -> "Session Completed"
-        }
-
-        val notification = NotificationCompat.Builder(context, channelId)
-            .setSmallIcon(android.R.drawable.ic_dialog_info)
-            .setContentTitle(title)
-            .setContentText(sessionTitle)
-            .setStyle(NotificationCompat.BigTextStyle().bigText(sessionTitle))
-            .setPriority(NotificationCompat.PRIORITY_HIGH)
-            .setAutoCancel(true)
-            .setGroup(NOTIFICATION_GROUP)
-            .build()
-
-        val notificationManager = ContextCompat.getSystemService(context, NotificationManager::class.java)
-        notificationManager?.notify(System.currentTimeMillis().toInt(), notification)
     }
 }

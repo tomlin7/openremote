@@ -15,7 +15,12 @@ class OpenRemoteApp : Application() {
     override fun onCreate() {
         super.onCreate()
         container = AppContainer(this)
-        OpenRemoteNotificationManager.createNotificationChannels(this)
+        try {
+            OpenRemoteNotificationManager.createNotificationChannels(this)
+        } catch (e: Exception) {
+            // Notification channels may fail on some devices/ROMs
+            android.util.Log.e("OpenRemoteApp", "Failed to create notification channels", e)
+        }
     }
 }
 

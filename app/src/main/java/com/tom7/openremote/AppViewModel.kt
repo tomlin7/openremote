@@ -102,8 +102,12 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
         
         // Listen for session completion events and show notifications
         viewModelScope.launch {
-            events.collect { event ->
-                handleSessionEvent(event)
+            try {
+                events.collect { event ->
+                    handleSessionEvent(event)
+                }
+            } catch (e: Exception) {
+                android.util.Log.e("AppViewModel", "Error collecting events", e)
             }
         }
     }
