@@ -21,6 +21,8 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.lifecycle.viewmodel.initializer
+import androidx.lifecycle.viewmodel.viewModelFactory
 import com.tom7.openremote.AppViewModel
 import com.tom7.openremote.data.OpenCodeApi
 import com.tom7.openremote.data.SessionInfo
@@ -33,7 +35,11 @@ fun InboxScreen(
     app: AppViewModel,
     onOpenSession: (SessionInfo) -> Unit,
     onNewSession: () -> Unit,
-    viewModel: InboxViewModel = viewModel(),
+    viewModel: InboxViewModel = viewModel(
+        factory = viewModelFactory {
+            initializer { InboxViewModel(api) }
+        }
+    ),
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
 
