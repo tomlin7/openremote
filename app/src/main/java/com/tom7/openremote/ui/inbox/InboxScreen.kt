@@ -136,14 +136,15 @@ fun InboxScreen(
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
                 Text(
-                    text = "opencode",
+                    text = "openremote",
                     style = TextStyle(
                         fontFamily = FontFamily.Monospace,
                         fontWeight = FontWeight.Bold,
-                        fontSize = 46.sp,
+                        fontSize = 40.sp,
                         letterSpacing = 2.sp,
                     ),
                     color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.32f),
+                    maxLines = 1,
                 )
 
                 Spacer(Modifier.height(26.dp))
@@ -297,7 +298,7 @@ fun InboxScreen(
                         ?: state.directory.trimEnd('\\', '/')
                             .substringAfterLast('\\')
                             .substringAfterLast('/')
-                            .ifBlank { "opencode" },
+                            .ifBlank { "openremote" },
                     live = realtime == RealtimeStatus.Live,
                     branch = state.branch,
                 )
