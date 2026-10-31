@@ -15,6 +15,7 @@ class OpenRemoteApp : Application() {
     override fun onCreate() {
         super.onCreate()
         container = AppContainer(this)
+        OpenRemoteNotificationManager.createNotificationChannels(this)
     }
 }
 

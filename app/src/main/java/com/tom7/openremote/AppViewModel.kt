@@ -99,6 +99,44 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
                 runCatching { api?.location() }.onSuccess { _location.value = it }
             }
         }
+        
+        // Listen for session completion events and show notifications
+        viewModelScope.launch {
+            events.collect { event ->
+                handleSessionEvent(event)
+            }
+        }
+    }
+    
+    private fun handleSessionEvent(event: ServerEvent) {
+        val sessionID = event.sessionID ?: return
+        
+        // Check for completion events
+        val outcome = when (event.type) {
+            "session.execution.succeeded" -> "succeeded"
+            "session.execution.failed" -> "failed"
+            "session.execution.interrupted" -> "interrupted"
+            "session.idle" -> {
+                // Only notify on idle if we know the session was active
+                // This prevents duplicate notifications
+                return
+            }
+            else -> return
+        }
+        
+        // Get session title - we'll need to fetch it or use a fallback
+        viewModelScope.launch {
+            try {
+                val session = api?.session(sessionID)
+                val title = session?.displayTitle ?: "Session"
+                val context = getApplication<OpenRemoteApp>()
+                OpenRemoteNotificationManager.notifySessionCompleted(context, title, outcome)
+            } catch (e: Exception) {
+                // Fallback to session ID if we can't fetch the title
+                val context = getApplication<OpenRemoteApp>()
+                OpenRemoteNotificationManager.notifySessionCompleted(context, "Session", outcome)
+            }
+        }
     }
 
     fun connect(inputUrl: String, password: String) {
